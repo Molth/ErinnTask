@@ -16,7 +16,7 @@ namespace Erinn
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Typed buckets own callback storage and slot reuse, while queue nodes and cancellation tokens
+    ///                 Typed buckets own callback storage and slot reuse, while queue nodes and cancellation handles
     ///                 address those buckets directly.
     ///             </description>
     ///         </item>
@@ -37,7 +37,7 @@ namespace Erinn
     ///         <item>
     ///             <description>
     ///                 Callbacks execute inline on the thread that calls <see cref="Update" />,
-    ///                 <see cref="ErinnTimerCancelTokenSource.Cancel" />, or <see cref="Dispose" />. Timers with equal
+    ///                 <see cref="ErinnTimerCancelHandle.Cancel" />, or <see cref="Dispose" />. Timers with equal
     ///                 timestamps run in scheduling order.
     ///             </description>
     ///         </item>
@@ -113,13 +113,13 @@ namespace Erinn
         ///         <item>
         ///             <description>
         ///                 When this is <see langword="null" />, a callback exception is thrown to the caller of
-        ///                 <see cref="Update" /> and <see cref="ErinnTimerCancelTokenSource.Cancel" />.
+        ///                 <see cref="Update" /> and <see cref="ErinnTimerCancelHandle.Cancel" />.
         ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
         ///                 When this callback itself throws, that exception is propagated from <see cref="Update" /> and
-        ///                 <see cref="ErinnTimerCancelTokenSource.Cancel" />, and is collected into the
+        ///                 <see cref="ErinnTimerCancelHandle.Cancel" />, and is collected into the
         ///                 <see cref="AggregateException" /> thrown by <see cref="Dispose" />.
         ///             </description>
         ///         </item>
@@ -132,7 +132,7 @@ namespace Erinn
         public Action<Exception>? OnException { get; set; }
 
         /// <summary>
-        ///     Marks the scheduler disposed, executes every pending timer with <see cref="ErinnTimerTag.Fault" />, and
+        ///     Marks the scheduler disposed, executes every pending timer with <see cref="ErinnTimerTag.Disposed" />, and
         ///     releases its queue and bucket storage. Repeated calls after the first are no-ops, including after an
         ///     <see cref="AggregateException" /> is thrown.
         /// </summary>
@@ -144,7 +144,7 @@ namespace Erinn
         ///     <list type="bullet">
         ///         <item>
         ///             <description>
-        ///                 Every pending callback is invoked with <see cref="ErinnTimerTag.Fault" /> before the scheduler is
+        ///                 Every pending callback is invoked with <see cref="ErinnTimerTag.Disposed" /> before the scheduler is
         ///                 cleared.
         ///             </description>
         ///         </item>
@@ -182,7 +182,7 @@ namespace Erinn
 
             while (_timers.TryDequeue(out var node))
             {
-                node.Bucket.Trigger(node.Uid, node.BucketId, ErinnTimerTag.Fault, out var exception);
+                node.Bucket.TryComplete(node.Uid, node.SlotIndex, ErinnTimerTag.Disposed, out var exception);
                 if (exception == null)
                     continue;
 
@@ -244,19 +244,19 @@ namespace Erinn
         ///     The non-null callback to invoke exactly once after scheduling succeeds. It receives:
         ///     <list type="bullet">
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Success" /> when the timer fires.</description>
+        ///             <description><see cref="ErinnTimerTag.Ok" /> when the timer fires.</description>
         ///         </item>
         ///         <item>
         ///             <description><see cref="ErinnTimerTag.Canceled" /> when the timer is canceled.</description>
         ///         </item>
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Fault" /> when the scheduler is disposed.</description>
+        ///             <description><see cref="ErinnTimerTag.Disposed" /> when the scheduler is disposed.</description>
         ///         </item>
         ///     </list>
         /// </param>
         /// <param name="data">The payload passed unchanged to the callback; reference payloads may be null.</param>
         /// <typeparam name="T">The type of the data passed to the callback.</typeparam>
-        /// <returns>A token that can be used to cancel the timer before it fires.</returns>
+        /// <returns>A handle that can be used to cancel the timer before it fires.</returns>
         /// <exception cref="ObjectDisposedException">Thrown if the scheduler has already been disposed.</exception>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="callback" /> is <see langword="null" />.</exception>
         /// <exception cref="InvalidOperationException">Thrown if all non-zero timer ids have already been assigned.</exception>
@@ -298,7 +298,7 @@ namespace Erinn
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        public ErinnTimerCancelTokenSource Create<T>(ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
+        public ErinnTimerCancelHandle Create<T>(ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
         {
             ThrowHelpers.ThrowIfDisposed(_disposed, nameof(ErinnTimerScheduler));
             ThrowHelpers.ThrowIfNull(callback, ExceptionArgument.callback);
@@ -328,14 +328,14 @@ namespace Erinn
         /// <param name="data">The payload to route through the storage slot.</param>
         /// <typeparam name="TSlot">The type of the storage slot.</typeparam>
         /// <typeparam name="T">The callback parameter type.</typeparam>
-        /// <returns>The token that cancels the queued timer.</returns>
+        /// <returns>The handle that cancels the queued timer.</returns>
         [ThreadAffine]
-        private ErinnTimerCancelTokenSource Schedule<TSlot, T>(ErinnTimerBucket<TSlot> bucket, ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
+        private ErinnTimerCancelHandle Schedule<TSlot, T>(ErinnTimerBucket<TSlot> bucket, ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
         {
             var uid = ++_uid;
-            var bucketId = bucket.Allocate(uid, callback, data);
-            _timers.Enqueue(new ErinnTimerNode(bucket, bucketId, timestamp, uid));
-            return new ErinnTimerCancelTokenSource(this, bucket, bucketId, uid);
+            var slotIndex = bucket.Allocate(uid, callback, data);
+            _timers.Enqueue(new ErinnTimerNode(bucket, slotIndex, timestamp, uid));
+            return new ErinnTimerCancelHandle(this, bucket, slotIndex, uid);
         }
 
         /// <summary>
@@ -395,7 +395,7 @@ namespace Erinn
 
             while (_timers.TryDequeue(timestamp, out var node))
             {
-                node.Bucket.Trigger(node.Uid, node.BucketId, ErinnTimerTag.Success, out var exception);
+                node.Bucket.TryComplete(node.Uid, node.SlotIndex, ErinnTimerTag.Ok, out var exception);
                 ReportException(exception);
             }
         }
@@ -405,7 +405,7 @@ namespace Erinn
         ///     The callback is invoked with <see cref="ErinnTimerTag.Canceled" />.
         /// </summary>
         /// <param name="bucket">The bucket that owns the callback; it must belong to this scheduler.</param>
-        /// <param name="bucketId">The allocated slot index inside <paramref name="bucket" />.</param>
+        /// <param name="slotIndex">The allocated slot index inside <paramref name="bucket" />.</param>
         /// <param name="uid">The non-zero unique id of the timer entry.</param>
         /// <returns>
         ///     <see langword="true" /> if the timer was pending and its callback was invoked with
@@ -437,16 +437,16 @@ namespace Erinn
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        internal bool Cancel(IErinnTimerBucket bucket, int bucketId, ulong uid)
+        internal bool Cancel(IErinnTimerBucket bucket, int slotIndex, ulong uid)
         {
             if (_disposed)
                 return false;
 
-            if (!bucket.TryGetQueueIndex(uid, bucketId, out var queueIndex))
+            if (!bucket.TryGetQueueIndex(uid, slotIndex, out var queueIndex))
                 return false;
 
             _timers.RemoveAt(queueIndex);
-            if (!bucket.Trigger(uid, bucketId, ErinnTimerTag.Canceled, out var exception))
+            if (!bucket.TryComplete(uid, slotIndex, ErinnTimerTag.Canceled, out var exception))
                 ThrowHelpers.ThrowInvalidOperation(SR.InvalidOperation_TimerEntryChangedDuringCancellation);
 
             ReportException(exception);

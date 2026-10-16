@@ -77,7 +77,7 @@ namespace Erinn
         ///     out-of-range slot, or a slot containing another timer id.
         /// </summary>
         /// <param name="uid">The non-zero unique id expected for the entry.</param>
-        /// <param name="id">
+        /// <param name="slotIndex">
         ///     The slot index to validate against <paramref name="uid" />; it must identify an allocated slot to
         ///     match.
         /// </param>
@@ -91,35 +91,35 @@ namespace Erinn
         /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [ThreadAffine]
-        public bool TryGetQueueIndex(ulong uid, int id, out int queueIndex)
+        public bool TryGetQueueIndex(ulong uid, int slotIndex, out int queueIndex)
         {
-            if (uid == 0 || (uint)id >= (uint)_count || _entries[id].Uid != uid)
+            if (uid == 0 || (uint)slotIndex >= (uint)_count || _entries[slotIndex].Uid != uid)
             {
                 queueIndex = 0;
                 return false;
             }
 
-            queueIndex = _queueIndices[id];
+            queueIndex = _queueIndices[slotIndex];
             return true;
         }
 
         /// <summary>
         ///     Records the heap position of an active slot after a queue insertion or move.
         /// </summary>
-        /// <param name="id">The active, allocated bucket slot index.</param>
+        /// <param name="slotIndex">The active, allocated bucket slot index.</param>
         /// <param name="index">
         ///     The current heap position of that slot, in the range from zero to the number of queued timers minus
         ///     one. The index is stored without validation.
         /// </param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [ThreadAffine]
-        public void SetQueueIndex(int id, int index) => _queueIndices[id] = index;
+        public void SetQueueIndex(int slotIndex, int index) => _queueIndices[slotIndex] = index;
 
         /// <summary>
-        ///     Releases the matching entry and its slot before invoking the callback.
+        ///     Attempts to complete a matching live entry, releasing its slot before invoking the callback.
         /// </summary>
-        /// <param name="uid">The non-zero unique id expected for the entry currently occupying <paramref name="id" />.</param>
-        /// <param name="id">
+        /// <param name="uid">The non-zero unique id expected for the entry currently occupying <paramref name="slotIndex" />.</param>
+        /// <param name="slotIndex">
         ///     The slot index to validate against <paramref name="uid" />; it must identify an allocated slot to
         ///     match.
         /// </param>
@@ -130,19 +130,19 @@ namespace Erinn
         ///     otherwise <see langword="false" />.
         /// </returns>
         [ThreadAffine]
-        public bool Trigger(ulong uid, int id, ErinnTimerTag tag, out Exception? exception)
+        public bool TryComplete(ulong uid, int slotIndex, ErinnTimerTag tag, out Exception? exception)
         {
             exception = null;
 
-            if (uid == 0 || (uint)id >= (uint)_count)
+            if (uid == 0 || (uint)slotIndex >= (uint)_count)
                 return false;
 
-            var entry = _entries[id];
+            var entry = _entries[slotIndex];
             if (entry.Uid != uid)
                 return false;
 
-            _entries[id] = default;
-            _freeIds[_freeCount++] = id;
+            _entries[slotIndex] = default;
+            _freeIds[_freeCount++] = slotIndex;
 
             try
             {
@@ -157,7 +157,7 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Drops callback and slot metadata so retained cancellation tokens do not keep the backing arrays alive after
+        ///     Drops callback and slot metadata so retained cancellation handles do not keep the backing arrays alive after
         ///     disposal. The bucket cannot be used again after this call.
         /// </summary>
         [ThreadAffine]
@@ -185,23 +185,23 @@ namespace Erinn
         {
             var entry = ErinnTimerEntry<TSlot>.Create(uid, callback, data);
             var freeCount = _freeCount;
-            int id;
+            int slotIndex;
             if (freeCount != 0)
             {
-                id = _freeIds[freeCount - 1];
+                slotIndex = _freeIds[freeCount - 1];
                 _freeCount = freeCount - 1;
             }
             else
             {
-                id = _count;
-                if (id == _entries.Length)
-                    Grow(id + 1);
+                slotIndex = _count;
+                if (slotIndex == _entries.Length)
+                    Grow(slotIndex + 1);
 
-                _count = id + 1;
+                _count = slotIndex + 1;
             }
 
-            _entries[id] = entry;
-            return id;
+            _entries[slotIndex] = entry;
+            return slotIndex;
         }
 
         /// <summary>

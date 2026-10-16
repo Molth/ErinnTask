@@ -156,12 +156,12 @@ namespace Erinn
                     break;
 
                 nodes[index] = parent;
-                parent.Bucket.SetQueueIndex(parent.BucketId, index);
+                parent.Bucket.SetQueueIndex(parent.SlotIndex, index);
                 index = parentIndex;
             }
 
             nodes[index] = node;
-            node.Bucket.SetQueueIndex(node.BucketId, index);
+            node.Bucket.SetQueueIndex(node.SlotIndex, index);
         }
 
         /// <summary>
@@ -196,12 +196,12 @@ namespace Erinn
                     break;
 
                 nodes[index] = minChild;
-                minChild.Bucket.SetQueueIndex(minChild.BucketId, index);
+                minChild.Bucket.SetQueueIndex(minChild.SlotIndex, index);
                 index = minChildIndex;
             }
 
             nodes[index] = node;
-            node.Bucket.SetQueueIndex(node.BucketId, index);
+            node.Bucket.SetQueueIndex(node.SlotIndex, index);
         }
     }
 }

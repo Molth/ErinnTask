@@ -25,13 +25,13 @@ namespace Erinn
     ///         <item>
     ///             <description>
     ///                 Cancellation completes the awaitable with a tag and does not create a cancellation exception.
-    ///                 Scheduler disposal completes pending timers with <see cref="ErinnTimerTag.Fault" />. Exceptions
+    ///                 Scheduler disposal completes pending timers with <see cref="ErinnTimerTag.Disposed" />. Exceptions
     ///                 thrown by an await continuation follow the scheduler's callback exception policy.
     ///             </description>
     ///         </item>
     ///     </list>
     /// </remarks>
-    public static class ErinnTaskTimerExtensions
+    public static class ErinnTimerSchedulerExtensions
     {
         /// <summary>
         ///     Schedules an awaitable timer to complete at the specified microsecond timestamp.
@@ -44,18 +44,18 @@ namespace Erinn
         ///     The absolute timestamp in microseconds. It must use the same time origin and unit as timestamps passed
         ///     to <see cref="ErinnTimerScheduler.Update" />; it is not a delay. Any <see cref="ulong" /> value is valid.
         /// </param>
-        /// <param name="cancelTokenSource">On successful return, receives a token that can cancel this timer before it completes.</param>
+        /// <param name="cancelHandle">On successful return, receives a handle that can cancel this timer before it completes.</param>
         /// <returns>
         ///     An operation that completes with one of the following tags:
         ///     <list type="bullet">
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Success" /> when the timer fires.</description>
+        ///             <description><see cref="ErinnTimerTag.Ok" /> when the timer fires.</description>
         ///         </item>
         ///         <item>
         ///             <description><see cref="ErinnTimerTag.Canceled" /> when the timer is canceled.</description>
         ///         </item>
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Fault" /> when the scheduler is disposed.</description>
+        ///             <description><see cref="ErinnTimerTag.Disposed" /> when the scheduler is disposed.</description>
         ///         </item>
         ///     </list>
         /// </returns>
@@ -79,14 +79,14 @@ namespace Erinn
         ///         <item>
         ///             <description>
         ///                 Await the operation exactly once. Its continuation runs inline on the thread calling
-        ///                 <see cref="ErinnTimerScheduler.Update" />, <see cref="ErinnTimerCancelTokenSource.Cancel" />, or
+        ///                 <see cref="ErinnTimerScheduler.Update" />, <see cref="ErinnTimerCancelHandle.Cancel" />, or
         ///                 <see cref="ErinnTimerScheduler.Dispose" />.
         ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
         ///                 Cancellation completes with <see cref="ErinnTimerTag.Canceled" /> and disposal completes with
-        ///                 <see cref="ErinnTimerTag.Fault" />; neither outcome is represented by a thrown cancellation
+        ///                 <see cref="ErinnTimerTag.Disposed" />; neither outcome is represented by a thrown cancellation
         ///                 exception.
         ///             </description>
         ///         </item>
@@ -101,15 +101,15 @@ namespace Erinn
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        public static ErinnTask<ErinnTimerTag> FromMicroseconds(this ErinnTimerScheduler scheduler, ulong timestamp, out ErinnTimerCancelTokenSource cancelTokenSource)
+        public static ErinnTask<ErinnTimerTag> WaitUntilMicroseconds(this ErinnTimerScheduler scheduler, ulong timestamp, out ErinnTimerCancelHandle cancelHandle)
         {
             ThrowHelpers.ThrowIfNull(scheduler, ExceptionArgument.scheduler);
 
-            cancelTokenSource = default;
+            cancelHandle = default;
             var source = ErinnTaskCompletionSource<ErinnTimerTag>.Rent();
             try
             {
-                cancelTokenSource = scheduler.Create(timestamp, CallbackCache.TimerCompleted, source);
+                cancelHandle = scheduler.Create(timestamp, CallbackCache.TimerCompleted, source);
             }
             catch (Exception exception)
             {
@@ -147,18 +147,18 @@ namespace Erinn
         ///         </item>
         ///     </list>
         /// </param>
-        /// <param name="cancelTokenSource">On successful return, receives a token that can cancel this timer before it completes.</param>
+        /// <param name="cancelHandle">On successful return, receives a handle that can cancel this timer before it completes.</param>
         /// <returns>
         ///     An operation that completes with one of these tags:
         ///     <list type="bullet">
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Success" /> when an update reaches the timestamp.</description>
+        ///             <description><see cref="ErinnTimerTag.Ok" /> when an update reaches the timestamp.</description>
         ///         </item>
         ///         <item>
         ///             <description><see cref="ErinnTimerTag.Canceled" /> when the timer is canceled.</description>
         ///         </item>
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Fault" /> when the scheduler is disposed first.</description>
+        ///             <description><see cref="ErinnTimerTag.Disposed" /> when the scheduler is disposed first.</description>
         ///         </item>
         ///     </list>
         /// </returns>
@@ -184,19 +184,19 @@ namespace Erinn
         ///         <item>
         ///             <description>
         ///                 After validation and conversion, this method directly calls
-        ///                 <see cref="FromMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerCancelTokenSource)" /> to create
+        ///                 <see cref="WaitUntilMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerCancelHandle)" /> to create
         ///                 the awaitable timer.
         ///             </description>
         ///         </item>
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        public static ErinnTask<ErinnTimerTag> FromMilliseconds(this ErinnTimerScheduler scheduler, ulong timestamp, out ErinnTimerCancelTokenSource cancelTokenSource)
+        public static ErinnTask<ErinnTimerTag> WaitUntilMilliseconds(this ErinnTimerScheduler scheduler, ulong timestamp, out ErinnTimerCancelHandle cancelHandle)
         {
             ThrowHelpers.ThrowIfNull(scheduler, ExceptionArgument.scheduler);
             ThrowHelpers.ThrowIfTimerMillisecondsOutOfRange(timestamp, ExceptionArgument.timestamp);
 
-            return scheduler.FromMicroseconds(timestamp * 1000UL, out cancelTokenSource);
+            return scheduler.WaitUntilMicroseconds(timestamp * 1000UL, out cancelHandle);
         }
 
         /// <summary>
@@ -226,18 +226,18 @@ namespace Erinn
         ///         </item>
         ///     </list>
         /// </param>
-        /// <param name="cancelTokenSource">On successful return, receives a token that can cancel this timer before it completes.</param>
+        /// <param name="cancelHandle">On successful return, receives a handle that can cancel this timer before it completes.</param>
         /// <returns>
         ///     An operation that completes with one of these tags:
         ///     <list type="bullet">
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Success" /> when an update reaches the timestamp.</description>
+        ///             <description><see cref="ErinnTimerTag.Ok" /> when an update reaches the timestamp.</description>
         ///         </item>
         ///         <item>
         ///             <description><see cref="ErinnTimerTag.Canceled" /> when the timer is canceled.</description>
         ///         </item>
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Fault" /> when the scheduler is disposed first.</description>
+        ///             <description><see cref="ErinnTimerTag.Disposed" /> when the scheduler is disposed first.</description>
         ///         </item>
         ///     </list>
         /// </returns>
@@ -262,19 +262,19 @@ namespace Erinn
         ///         <item>
         ///             <description>
         ///                 After validation and conversion, this method directly calls
-        ///                 <see cref="FromMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerCancelTokenSource)" /> to create
+        ///                 <see cref="WaitUntilMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerCancelHandle)" /> to create
         ///                 the awaitable timer.
         ///             </description>
         ///         </item>
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        public static ErinnTask<ErinnTimerTag> FromSeconds(this ErinnTimerScheduler scheduler, double timestamp, out ErinnTimerCancelTokenSource cancelTokenSource)
+        public static ErinnTask<ErinnTimerTag> WaitUntilSeconds(this ErinnTimerScheduler scheduler, double timestamp, out ErinnTimerCancelHandle cancelHandle)
         {
             ThrowHelpers.ThrowIfNull(scheduler, ExceptionArgument.scheduler);
             ThrowHelpers.ThrowIfTimerSecondsOutOfRange(timestamp, ExceptionArgument.timestamp);
 
-            return scheduler.FromMicroseconds((ulong)(timestamp * 1000000d), out cancelTokenSource);
+            return scheduler.WaitUntilMicroseconds((ulong)(timestamp * 1000000d), out cancelHandle);
         }
 
         /// <summary>
@@ -304,18 +304,18 @@ namespace Erinn
         ///         </item>
         ///     </list>
         /// </param>
-        /// <param name="cancelTokenSource">On successful return, receives a token that can cancel this timer before it completes.</param>
+        /// <param name="cancelHandle">On successful return, receives a handle that can cancel this timer before it completes.</param>
         /// <returns>
         ///     An operation that completes with one of these tags:
         ///     <list type="bullet">
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Success" /> when an update reaches the timestamp.</description>
+        ///             <description><see cref="ErinnTimerTag.Ok" /> when an update reaches the timestamp.</description>
         ///         </item>
         ///         <item>
         ///             <description><see cref="ErinnTimerTag.Canceled" /> when the timer is canceled.</description>
         ///         </item>
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Fault" /> when the scheduler is disposed first.</description>
+        ///             <description><see cref="ErinnTimerTag.Disposed" /> when the scheduler is disposed first.</description>
         ///         </item>
         ///     </list>
         /// </returns>
@@ -340,19 +340,19 @@ namespace Erinn
         ///         <item>
         ///             <description>
         ///                 After validation and conversion, this method directly calls
-        ///                 <see cref="FromMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerCancelTokenSource)" /> to create
+        ///                 <see cref="WaitUntilMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerCancelHandle)" /> to create
         ///                 the awaitable timer.
         ///             </description>
         ///         </item>
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        public static ErinnTask<ErinnTimerTag> FromTimeSpan(this ErinnTimerScheduler scheduler, TimeSpan timestamp, out ErinnTimerCancelTokenSource cancelTokenSource)
+        public static ErinnTask<ErinnTimerTag> WaitUntilTimeSpan(this ErinnTimerScheduler scheduler, TimeSpan timestamp, out ErinnTimerCancelHandle cancelHandle)
         {
             ThrowHelpers.ThrowIfNull(scheduler, ExceptionArgument.scheduler);
             ThrowHelpers.ThrowIfNegative(timestamp.Ticks, ExceptionArgument.timestamp);
 
-            return scheduler.FromMicroseconds((ulong)(timestamp.Ticks / 10L), out cancelTokenSource);
+            return scheduler.WaitUntilMicroseconds((ulong)(timestamp.Ticks / 10L), out cancelHandle);
         }
 
         /// <summary>

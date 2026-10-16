@@ -15,7 +15,7 @@ The timer scheduler is deliberately caller-driven: it does not create a thread, 
 - [Awaitable timers](#awaitable-timers)
 - [Timer and awaitable relationship](#timer-and-awaitable-relationship)
 - [Timer timestamps and conversions](#timer-timestamps-and-conversions)
-- [Cancellation and timer tokens](#cancellation-and-timer-tokens)
+- [Cancellation and timer handles](#cancellation-and-timer-handles)
 - [Disposal and resource lifetime](#disposal-and-resource-lifetime)
 - [Exceptions](#exceptions)
 - [Threading and continuation behavior](#threading-and-continuation-behavior)
@@ -31,14 +31,14 @@ The timer scheduler is deliberately caller-driven: it does not create a thread, 
 
 The public API is in the `Erinn` namespace.
 
-| Type                          | Purpose                                                                                                                           |
-|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
-| `ErinnTask`                   | An awaitable operation with no result. It is also the async return type for methods declared as `async ErinnTask`.                |
-| `ErinnTask<T>`                | An awaitable operation that produces a `T` result. It is also the async return type for methods declared as `async ErinnTask<T>`. |
-| `ErinnTimerScheduler`         | Stores timers and invokes callbacks when the caller advances the scheduler with `Update`.                                         |
-| `ErinnTimerCancelTokenSource` | A value handle that can cancel one pending timer and invoke its callback with a cancellation tag.                                 |
-| `ErinnTimerTag`               | The timer callback result: `Success`, `Canceled`, or `Fault`.                                                                     |
-| `ErinnTaskTimerExtensions`    | Extension methods that create `ErinnTask<ErinnTimerTag>` timers from absolute timestamps.                                         |
+| Type                            | Purpose                                                                                                                           |
+|---------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| `ErinnTask`                     | An awaitable operation with no result. It is also the async return type for methods declared as `async ErinnTask`.                |
+| `ErinnTask<T>`                  | An awaitable operation that produces a `T` result. It is also the async return type for methods declared as `async ErinnTask<T>`. |
+| `ErinnTimerScheduler`           | Stores timers and invokes callbacks when the caller advances the scheduler with `Update`.                                         |
+| `ErinnTimerCancelHandle`        | A value handle that can cancel one pending timer and invoke its callback with a cancellation tag.                                 |
+| `ErinnTimerTag`                 | The timer callback result: `Ok`, `Canceled`, or `Disposed`.                                                                       |
+| `ErinnTimerSchedulerExtensions` | Extension methods that create `ErinnTask<ErinnTimerTag>` timers from absolute timestamps.                                         |
 
 `ErinnTask` is not a wrapper around `System.Threading.Tasks.Task` or `ValueTask`. It has no implicit conversion to those types, no `ConfigureAwait`, no built-in `CancellationToken` support, and no `WhenAll` or `WhenAny` combinators. It can be awaited inside a regular `Task`-returning method, and an `ErinnTask`-returning method can await `Task`, `ValueTask`, or another awaitable that follows the C# awaiter pattern.
 
@@ -47,7 +47,7 @@ The public API is in the `Erinn` namespace.
 These limits are part of the current API contract:
 
 - **Task and ValueTask adapters:** `ErinnTask` is its own awaitable type. There are no implicit conversions or built-in adapters to or from `Task`/`ValueTask`, though each type can be awaited in a compatible async method.
-- **Task convenience APIs:** There is no `ConfigureAwait`, `WhenAll`, `WhenAny`, or built-in `CancellationToken` integration. The timer token is a separate value handle and cancellation completes with an `ErinnTimerTag`.
+- **Task convenience APIs:** There is no `ConfigureAwait`, `WhenAll`, `WhenAny`, or built-in `CancellationToken` integration. Timer cancellation uses a separate value handle and completes with an `ErinnTimerTag`.
 - **Automatic or relative timers:** The scheduler has no clock, delay-based overload, background timer thread, or wake-up mechanism. It accepts absolute timestamps and runs only when the application calls `Update`.
 - **Recurring timers:** Each scheduled entry is one-shot. A callback can schedule another entry, but the application chooses its next deadline and catch-up policy.
 - **Background work scheduling:** An `async ErinnTask` method starts synchronously and the library does not automatically queue it to the thread pool. Resumption follows the awaited operation's scheduling behavior.
@@ -60,13 +60,13 @@ ErinnTask is a good fit when an application already owns a regular update loop a
 
 Choose the API that matches how the operation is consumed:
 
-| Need                                                                                                            | Use                                                                      | Notes                                                                                      |
-|-----------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
-| An async method that returns no value or one result                                                             | `ErinnTask` or `ErinnTask<T>`                                            | Treat source-backed results as single-consumption awaitables.                              |
-| A timer that invokes an action and does not need an `await` result                                              | `ErinnTimerScheduler.Create<T>`                                          | The callback receives a terminal tag and its typed payload.                                |
-| An async method that waits for a scheduled deadline                                                             | `FromMicroseconds`, `FromMilliseconds`, `FromSeconds`, or `FromTimeSpan` | These return `ErinnTask<ErinnTimerTag>`; the scheduler still needs regular `Update` calls. |
-| Standard task combinators, `CancellationToken` APIs, broad library interoperability, or ordinary background I/O | `Task` or `ValueTask`                                                    | ErinnTask can await these types, but does not provide their surrounding APIs.              |
-| A timer that must wake the process or run independently of an application loop                                  | A platform timer or another autonomous scheduler                         | ErinnTask's scheduler does not own a clock, thread, or wake-up mechanism.                  |
+| Need                                                                                                            | Use                                                                                          | Notes                                                                                      |
+|-----------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| An async method that returns no value or one result                                                             | `ErinnTask` or `ErinnTask<T>`                                                                | Treat source-backed results as single-consumption awaitables.                              |
+| A timer that invokes an action and does not need an `await` result                                              | `ErinnTimerScheduler.Create<T>`                                                              | The callback receives a terminal tag and its typed payload.                                |
+| An async method that waits for a scheduled deadline                                                             | `WaitUntilMicroseconds`, `WaitUntilMilliseconds`, `WaitUntilSeconds`, or `WaitUntilTimeSpan` | These return `ErinnTask<ErinnTimerTag>`; the scheduler still needs regular `Update` calls. |
+| Standard task combinators, `CancellationToken` APIs, broad library interoperability, or ordinary background I/O | `Task` or `ValueTask`                                                                        | ErinnTask can await these types, but does not provide their surrounding APIs.              |
+| A timer that must wake the process or run independently of an application loop                                  | A platform timer or another autonomous scheduler                                             | ErinnTask's scheduler does not own a clock, thread, or wake-up mechanism.                  |
 
 ### Good fit
 
@@ -160,7 +160,7 @@ using (ErinnTimerScheduler scheduler = ErinnTimerScheduler.Create())
 
     ulong nowMicroseconds = NowMicroseconds();
     ulong deadline = nowMicroseconds + 2_000_000UL;
-    ErinnTimerCancelTokenSource token = scheduler.Create(
+    ErinnTimerCancelHandle handle = scheduler.Create(
         deadline,
         static (tag, message) => Console.WriteLine($"{message}: {tag}"),
         "cache refresh");
@@ -169,7 +169,7 @@ using (ErinnTimerScheduler scheduler = ErinnTimerScheduler.Create())
     scheduler.Update(nowMicroseconds);
 
     // If the timer is still pending, this invokes its callback immediately with Canceled.
-    bool canceled = token.Cancel();
+    bool canceled = handle.Cancel();
 }
 ```
 
@@ -181,21 +181,21 @@ Timers are ordered by timestamp. Timers with the same timestamp run in schedulin
 
 ## Awaitable timers
 
-The timer extension methods return `ErinnTask<ErinnTimerTag>` and provide a cancellation token through an `out` parameter. The scheduler still has to be driven by the application.
+The timer extension methods return `ErinnTask<ErinnTimerTag>` and provide a cancellation handle through an `out` parameter. The scheduler still has to be driven by the application.
 
 ### Timer and awaitable relationship
 
-The four timer extensions—`FromMicroseconds`, `FromMilliseconds`, `FromSeconds`, and `FromTimeSpan`—normalize their absolute deadline to microseconds, queue a callback backed by a completion source, and return both an `ErinnTask<ErinnTimerTag>` and a cancellation token for that scheduled entry. The lifecycle is:
+The four timer extensions—`WaitUntilMicroseconds`, `WaitUntilMilliseconds`, `WaitUntilSeconds`, and `WaitUntilTimeSpan`—normalize their absolute deadline to microseconds, queue a callback backed by a completion source, and return both an `ErinnTask<ErinnTimerTag>` and a cancellation handle for that scheduled entry. The lifecycle is:
 
 | Operation                                      | Effect                                                                                                                                                                                                                                                                                                           |
 |------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Any of the four timer extensions               | Queues the timer callback and completion source; returns the awaitable and a token for that same entry.                                                                                                                                                                                                          |
-| `Update(nowMicroseconds)` reaches the deadline | The scheduler removes the due entry and invokes its callback with `Success`. The application calls `Update` from the scheduler's owner-thread loop.                                                                                                                                                              |
-| `token.Cancel()` while pending                 | Removes the entry and invokes its callback inline with `Canceled`. Returns `true` if callback handling returns normally, or `false` if the entry is no longer pending.                                                                                                                                           |
-| `Dispose()` while pending                      | Drains the entry and invokes its callback inline with `Fault`.                                                                                                                                                                                                                                                   |
+| Any of the four timer extensions               | Queues the timer callback and completion source; returns the awaitable and a handle for that same entry.                                                                                                                                                                                                         |
+| `Update(nowMicroseconds)` reaches the deadline | The scheduler removes the due entry and invokes its callback with `Ok`. The application calls `Update` from the scheduler's owner-thread loop.                                                                                                                                                                   |
+| `handle.Cancel()` while pending                | Removes the entry and invokes its callback inline with `Canceled`. Returns `true` if callback handling returns normally, or `false` if the entry is no longer pending.                                                                                                                                           |
+| `Dispose()` while pending                      | Drains the entry and invokes its callback inline with `Disposed`.                                                                                                                                                                                                                                                |
 | Await the operation                            | The callback passes the tag to the completion source with `SetResult`, completing the awaitable successfully with that tag. A continuation registered before completion runs inline on the completion thread; one registered after completion runs inline on the registering thread. Consume the operation once. |
 
-`Success`, `Canceled`, and `Fault` are result tags, not exceptions. Callback exceptions, and exceptions from manually registered continuations invoked during timer completion, follow the scheduler's exception policy described below. Exceptions thrown by an async method body are captured in that method's returned `ErinnTask`.
+`Ok`, `Canceled`, and `Disposed` are result tags, not exceptions. Callback exceptions, and exceptions from manually registered continuations invoked during timer completion, follow the scheduler's exception policy described below. Exceptions thrown by an async method body are captured in that method's returned `ErinnTask`.
 
 ```csharp
 using Erinn;
@@ -204,14 +204,14 @@ static async ErinnTask<ErinnTimerTag> WaitUntilAsync(
     ErinnTimerScheduler scheduler,
     ulong deadlineMicroseconds)
 {
-    ErinnTask<ErinnTimerTag> timer = scheduler.FromMicroseconds(deadlineMicroseconds, out _);
+    ErinnTask<ErinnTimerTag> timer = scheduler.WaitUntilMicroseconds(deadlineMicroseconds, out _);
     return await timer;
 }
 ```
 
-Call this method from application flow and keep advancing the scheduler from its normal owner-thread loop, as shown in [Quick start: timer callbacks](#quick-start-timer-callbacks). When `Update` reaches the deadline, the operation completes with `Success`; a continuation registered by `await` runs inline inside that `Update` call.
+Call this method from application flow and keep advancing the scheduler from its normal owner-thread loop, as shown in [Quick start: timer callbacks](#quick-start-timer-callbacks). When `Update` reaches the deadline, the operation completes with `Ok`; a continuation registered by `await` runs inline inside that `Update` call.
 
-The terminal-tag meanings and their behavior during cancellation and disposal are compared in [Cancellation and timer tokens](#cancellation-and-timer-tokens); callback exception handling is described in [Exceptions](#exceptions).
+The terminal-tag meanings and their behavior during cancellation and disposal are compared in [Cancellation and timer handles](#cancellation-and-timer-handles); callback exception handling is described in [Exceptions](#exceptions).
 
 ## Timer timestamps and conversions
 
@@ -221,27 +221,27 @@ Every timer timestamp is an **absolute timestamp**, not a delay. The scheduler h
 
 The awaitable extensions normalize timestamps to **microseconds** internally. When using any of these extensions, call `Update` with the matching absolute timestamp expressed in microseconds, regardless of which extension you used:
 
-| Extension                                      | Input                                           | Conversion and limits                                                                                                                    |
-|------------------------------------------------|-------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| `FromMicroseconds(ulong timestamp, out token)` | Absolute microseconds                           | No conversion; every `ulong` value is accepted.                                                                                          |
-| `FromMilliseconds(ulong timestamp, out token)` | Absolute milliseconds                           | Multiplied by 1,000; accepted range is `0` through `ulong.MaxValue / 1_000`, inclusive.                                                  |
-| `FromSeconds(double timestamp, out token)`     | Absolute seconds                                | Must be finite and non-negative. The converted value must be less than `2^64` microseconds. Fractional microseconds are truncated.       |
-| `FromTimeSpan(TimeSpan timestamp, out token)`  | An absolute timestamp represented by `TimeSpan` | Must be non-negative. Ticks are divided by 10; sub-microsecond ticks are truncated. Result is at most `long.MaxValue / 10` microseconds. |
+| Extension                                            | Input                                           | Conversion and limits                                                                                                                    |
+|------------------------------------------------------|-------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| `WaitUntilMicroseconds(ulong timestamp, out handle)` | Absolute microseconds                           | No conversion; every `ulong` value is accepted.                                                                                          |
+| `WaitUntilMilliseconds(ulong timestamp, out handle)` | Absolute milliseconds                           | Multiplied by 1,000; accepted range is `0` through `ulong.MaxValue / 1_000`, inclusive.                                                  |
+| `WaitUntilSeconds(double timestamp, out handle)`     | Absolute seconds                                | Must be finite and non-negative. The converted value must be less than `2^64` microseconds. Fractional microseconds are truncated.       |
+| `WaitUntilTimeSpan(TimeSpan timestamp, out handle)`  | An absolute timestamp represented by `TimeSpan` | Must be non-negative. Ticks are divided by 10; sub-microsecond ticks are truncated. Result is at most `long.MaxValue / 10` microseconds. |
 
 When the application clock is in microseconds, add 250,000 microseconds to its current absolute timestamp:
 
 ```csharp
-ErinnTask<ErinnTimerTag> timer = scheduler.FromMicroseconds(
+ErinnTask<ErinnTimerTag> timer = scheduler.WaitUntilMicroseconds(
     checked(nowMicroseconds + 250_000UL),
     out _);
 ```
 
-When the application clock is in milliseconds, keep the deadline arithmetic in milliseconds. `FromMilliseconds` converts the deadline to microseconds; `Update` still takes microseconds:
+When the application clock is in milliseconds, keep the deadline arithmetic in milliseconds. `WaitUntilMilliseconds` converts the deadline to microseconds; `Update` still takes microseconds:
 
 ```csharp
 ulong nowMilliseconds = 12_500UL; // Sample from the application's millisecond clock.
 ulong deadlineMilliseconds = checked(nowMilliseconds + 250UL);
-ErinnTask<ErinnTimerTag> timer = scheduler.FromMilliseconds(deadlineMilliseconds, out _);
+ErinnTask<ErinnTimerTag> timer = scheduler.WaitUntilMilliseconds(deadlineMilliseconds, out _);
 
 scheduler.Update(nowMilliseconds * 1_000UL); // Repeat with later samples from the same clock.
 ```
@@ -253,49 +253,64 @@ For seconds and `TimeSpan`, the input is also an absolute timestamp. With a synt
 double nowSeconds = 12.5d;
 TimeSpan nowTimeSpan = TimeSpan.FromMilliseconds(12_500);
 
-ErinnTask<ErinnTimerTag> secondsTimer = scheduler.FromSeconds(
+ErinnTask<ErinnTimerTag> secondsTimer = scheduler.WaitUntilSeconds(
     nowSeconds + 0.25d,
     out _);
-ErinnTask<ErinnTimerTag> timeSpanTimer = scheduler.FromTimeSpan(
+ErinnTask<ErinnTimerTag> timeSpanTimer = scheduler.WaitUntilTimeSpan(
     nowTimeSpan + TimeSpan.FromMilliseconds(250),
     out _);
 
 scheduler.Update(12_750_000UL);
-ErinnTimerTag secondsResult = await secondsTimer; // Success
-ErinnTimerTag timeSpanResult = await timeSpanTimer; // Success
+ErinnTimerTag secondsResult = await secondsTimer; // Ok
+ErinnTimerTag timeSpanResult = await timeSpanTimer; // Ok
 ```
 
 The example uses a shared zero origin: `12.75` seconds and `12,750` milliseconds both convert to `12,750,000` microseconds. In all cases, `scheduler.Update` must receive the absolute time in microseconds; conversion does not change the scheduler's update unit.
 
 A timestamp of zero is still queued normally. It completes only after an `Update` call reaches that timestamp, a cancellation, or scheduler disposal.
 
-## Cancellation and timer tokens
+## Cancellation and timer handles
 
-`ErinnTimerCancelTokenSource` is an immutable value handle. It is not `System.Threading.CancellationTokenSource` and does not remove a timer silently.
+`ErinnTimerCancelHandle` is an immutable, per-timer handle. It is separate from the standard `System.Threading.CancellationToken` APIs and does not remove a timer silently.
 
-- `token.Cancel()` returns `true` when it canceled a timer that was still pending. The timer callback runs immediately with `ErinnTimerTag.Canceled` on the calling thread.
-- It returns `false` for a default token, a timer that already fired or was canceled, or a timer owned by a disposed scheduler.
-- A token's `IsValid` property means that it was created for a timer. It does **not** report whether the timer is still pending. Use the return value from `Cancel` when that distinction matters.
+- `handle.Cancel()` returns `true` when it canceled a timer that was still pending. The timer callback runs immediately with `ErinnTimerTag.Canceled` on the calling thread.
+- It returns `false` for a default handle, a timer that already fired or was canceled, or a timer owned by a disposed scheduler.
+- `IsCreated` is true when the scheduler issued the handle for a timer. It remains true after completion or scheduler disposal; use the return value from `Cancel` to determine whether a pending timer was canceled.
 - Repeated cancellation is harmless and returns `false` after the first successful cancellation.
-- Call `Cancel()` only on the scheduler's owning thread. The token does not make cross-thread scheduler access safe.
+- Call `Cancel()` only on the scheduler's owning thread. The handle does not make cross-thread scheduler access safe.
 
-| Event                                   | Callback tag and timing                                 | `Cancel()` result                            | Awaitable timer result                                                               |
-|-----------------------------------------|---------------------------------------------------------|----------------------------------------------|--------------------------------------------------------------------------------------|
-| `Update` reaches or passes the deadline | `Success`, during `Update`                              | `false` if called after completion           | Completes with `Success`                                                             |
-| `Cancel()` is called while pending      | `Canceled`, inline on the calling thread                | `true` if callback handling returns normally | Completes with `Canceled`                                                            |
-| `Dispose()` drains a pending timer      | `Fault`, inline during disposal                         | `false` if called after disposal             | Completes with `Fault`                                                               |
-| Default token                           | No callback; no timer is associated                     | `false`                                      | No associated operation                                                              |
-| Timer already completed                 | No callback from this call; completion already happened | `false`                                      | No new completion; any earlier `Success`, `Canceled`, or `Fault` result is unchanged |
+| Event                                   | Callback tag and timing                                 | `Cancel()` result                            | Awaitable timer result                                                             |
+|-----------------------------------------|---------------------------------------------------------|----------------------------------------------|------------------------------------------------------------------------------------|
+| `Update` reaches or passes the deadline | `Ok`, during `Update`                                   | `false` if called after completion           | Completes with `Ok`                                                                |
+| `Cancel()` is called while pending      | `Canceled`, inline on the calling thread                | `true` if callback handling returns normally | Completes with `Canceled`                                                          |
+| `Dispose()` drains a pending timer      | `Disposed`, inline during disposal                      | `false` if called after disposal             | Completes with `Disposed`                                                          |
+| Default handle                          | No callback; no timer is associated                     | `false`                                      | No associated operation                                                            |
+| Timer already completed                 | No callback from this call; completion already happened | `false`                                      | No new completion; any earlier `Ok`, `Canceled`, or `Disposed` result is unchanged |
 
-`Canceled` and `Fault` are successful awaitable results, not thrown cancellation or fault exceptions. Cancellation removes the timer before invoking its callback. If the callback or configured `OnException` handler throws, `Cancel()` propagates that exception after the timer has already been removed, so no Boolean result is returned.
+`Canceled` and `Disposed` are normal `ErinnTimerTag` results, not thrown cancellation or disposal exceptions. Cancellation removes the timer before invoking its callback. If the callback or configured `OnException` handler throws, `Cancel()` propagates that exception after the timer has already been removed, so no Boolean result is returned.
 
-The token is immutable and does not clear itself after completion. Avoid retaining completed tokens longer than necessary, especially when they keep a disposed scheduler reachable.
+The handle is immutable and does not clear itself after completion. Avoid retaining completed handles longer than necessary, especially when they keep a disposed scheduler reachable.
+
+### Inline completion and same-thread reentrancy
+
+An awaited timer completes its continuation inline. That continuation can call back into the same scheduler before the original `Cancel`, `Update`, or `Dispose` call returns. This is synchronous reentrancy on the scheduler's owner thread, not concurrent access from another thread.
+
+This does not leave the current timer half-removed. The scheduler removes its queue node and clears/releases its bucket entry before invoking the callback. A continuation can therefore cancel another pending timer, schedule another timer, or call `Update` on the owner thread while the current callback is on the stack. A nested `Update` runs immediately using the timestamp passed to that nested call.
+
+| Reentrant call                                                                | Behavior                                                                                                                                                                                                                                   |
+|-------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Cancel the timer whose callback is already running, or a copied handle for it | Returns `false`; the entry is no longer pending. A reused bucket slot has a different timer id, so an old handle cannot cancel the new timer.                                                                                              |
+| Cancel another pending timer                                                  | Invokes that timer's callback and continuation inline before the nested `Cancel` returns.                                                                                                                                                  |
+| Schedule a timer and call `Update`                                            | Allowed before disposal. The nested update can complete timers due at its supplied timestamp before the outer call returns.                                                                                                                |
+| Call `Dispose` from a callback or continuation                                | Disposal closes the scheduler before draining remaining timers with `Disposed`. During that drain, nested `Update` is ignored, `Cancel` returns `false`, `Create` throws `ObjectDisposedException`, and another `Dispose` call is a no-op. |
+
+These outcomes are part of the synchronous API contract; they do not indicate duplicate completion, a stale handle canceling a reused slot, or a thread-safe scheduler. Keep all scheduler calls on its owner thread, update application-owned state before calling `Cancel`, and keep nested callback chains bounded because they use the current call stack. Exceptions still follow the policies in [Exceptions](#exceptions); removing a timer is not undone when its callback or continuation throws.
 
 ## Disposal and resource lifetime
 
 `ErinnTimerScheduler` implements `IDisposable`. Dispose it on its owning thread when it is no longer needed, usually with `using` or `using` declarations.
 
-Disposal marks the scheduler closed, invokes every still-pending timer callback with `ErinnTimerTag.Fault`, releases queue and bucket storage, and releases the exception handler reference. Repeated calls after the first are no-ops, including when the first call threw an `AggregateException` after cleanup.
+Disposal marks the scheduler closed, invokes every still-pending timer callback with `ErinnTimerTag.Disposed`, releases queue and bucket storage, and releases the exception handler reference. Repeated calls after the first are no-ops, including when the first call threw an `AggregateException` after cleanup.
 
 After disposal:
 
@@ -304,7 +319,7 @@ After disposal:
 - `Cancel` returns `false`.
 - Scheduling from a callback that is running during the disposal drain throws `ObjectDisposedException`.
 
-Do not dispose a scheduler while application code still expects it to accept timers. Pending awaitable timers complete with `Fault` during disposal, so consume each returned task once if you need to observe that outcome.
+Do not dispose a scheduler while application code still expects it to accept timers. Pending awaitable timers complete with `Disposed` during disposal, so consume each returned task once if you need to observe that outcome.
 
 ## Exceptions
 
@@ -336,7 +351,7 @@ internal static class TimerErrorHandling
 
 Call `ConfigureLogging` once when initializing the scheduler, then keep calling `Update` from the owner loop. If `OnException` is left `null`, catch exceptions around `Update` or `Cancel` when the caller needs to handle them there. If a callback exception or the handler throws during `Dispose`, catch the resulting `AggregateException`; disposal finishes draining and releases scheduler storage before throwing it.
 
-`ErinnTimerTag.Fault` is not how callback exceptions are reported. It means that a timer was pending when the scheduler was disposed. If a manually registered continuation throws while the scheduler is synchronously completing a timer, the exception travels through the callback path and follows the scheduler policy above. A manually registered continuation attached after completion runs on the registering thread; an exception it throws propagates there. Exceptions thrown by an async method body are stored in its returned `ErinnTask` and observed by consuming that operation.
+`ErinnTimerTag.Disposed` is not how callback exceptions are reported. It means that a timer was pending when the scheduler was disposed. If a manually registered continuation throws while the scheduler is synchronously completing a timer, the exception travels through the callback path and follows the scheduler policy above. A manually registered continuation attached after completion runs on the registering thread; an exception it throws propagates there. Exceptions thrown by an async method body are stored in its returned `ErinnTask` and observed by consuming that operation.
 
 ## Threading and continuation behavior
 
@@ -368,23 +383,23 @@ Keep scheduling, `Update`, cancellation, exception-handler changes, and disposal
 
 ### Await one timer result and handle all terminal tags
 
-The returned timer operation is a one-shot operation. Store it, await it exactly once, and handle its terminal status. This example maps `Success` to `true` and both non-success statuses to `false`:
+The returned timer operation is a one-shot operation. Store it, await it exactly once, and handle its completion outcome. This example maps `Ok` to `true` and both non-`Ok` results to `false`:
 
 ```csharp
 static async ErinnTask<bool> WaitForDeadlineAsync(
     ErinnTimerScheduler scheduler,
     ulong deadlineMicroseconds)
 {
-    ErinnTask<ErinnTimerTag> timer = scheduler.FromMicroseconds(
+    ErinnTask<ErinnTimerTag> timer = scheduler.WaitUntilMicroseconds(
         deadlineMicroseconds,
         out _);
 
     ErinnTimerTag tag = await timer;
-    return tag == ErinnTimerTag.Success;
+    return tag == ErinnTimerTag.Ok;
 }
 ```
 
-If an owning component needs cancellation, create the timer there, retain the returned token, and give the one-shot operation to a single consumer. Call `Cancel` on the scheduler's owner thread. The timer operation still needs to be consumed once so its completion source can be returned to the pool. Treat `Canceled` and `Fault` as outcomes that the caller must interpret; neither is a thrown cancellation exception.
+If an owning component needs cancellation, create the timer there, retain the returned handle, and give the one-shot operation to a single consumer. Call `Cancel` on the scheduler's owner thread. The timer operation still needs to be consumed once so its completion source can be returned to the pool. Treat `Canceled` and `Disposed` as outcomes that the caller must interpret; neither is a thrown cancellation exception.
 
 ### Define recurring-timer behavior yourself
 
@@ -416,36 +431,36 @@ Measure the real call pattern and build configuration before making allocation c
 
 ## Public API map
 
-| API                                                                   | Behavior                                                                                                            | Threading contract                                                                                                   |
-|-----------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| `ErinnTask.CompletedTask`                                             | Completed non-generic operation.                                                                                    | No scheduler affinity; completes synchronously.                                                                      |
-| `ErinnTask.FromResult<T>(T result)`                                   | Completed `ErinnTask<T>` with an inline result.                                                                     | No scheduler affinity; completes synchronously.                                                                      |
-| `ErinnTask.GetAwaiter()` / `ErinnTask<T>.GetAwaiter()`                | Awaiter entry points used by the C# compiler. Manual consumption must follow the single-consumption rule.           | No fixed thread affinity; source-backed operations allow one consumer and completion/registration may cross threads. |
-| `ErinnTimerScheduler.Create()`                                        | Creates a new independent scheduler. The constructor is not public.                                                 | Choose the thread that will own it; subsequent scheduler operations stay on that thread.                             |
-| `ErinnTimerScheduler.Create<T>(ulong, Action<ErinnTimerTag, T?>, T?)` | Schedules a callback with a payload and returns its cancellation token.                                             | Scheduler owner thread only; callback runs inline on the thread that triggers it.                                    |
-| `ErinnTimerScheduler.Update(ulong)`                                   | Runs all timers due at or before the supplied absolute timestamp.                                                   | Scheduler owner thread only; callbacks and continuations run inline.                                                 |
-| `ErinnTimerScheduler.OnException`                                     | Gets or sets the single timer callback exception handler.                                                           | Read and write on the scheduler owner thread.                                                                        |
-| `ErinnTimerScheduler.Dispose()`                                       | Completes all pending timer callbacks with `Fault` and releases scheduler storage.                                  | Scheduler owner thread only; pending callbacks run inline during disposal.                                           |
-| `ErinnTimerCancelTokenSource.Cancel()`                                | Cancels one pending timer and invokes its callback with `Canceled`.                                                 | Scheduler owner thread only; a registered continuation can run inline before return.                                 |
-| `ErinnTimerCancelTokenSource.IsValid`                                 | Reports whether this value represents a token issued for a timer; it does not report whether that timer is pending. | Reads token state only; no scheduler access.                                                                         |
-| `ErinnTimerTag`                                                       | Status value returned to a timer callback or awaiter: `Success`, `Canceled`, or `Fault`.                            | Plain enum value; no thread affinity.                                                                                |
-| `ErinnTaskTimerExtensions.FromMicroseconds(...)`                      | Creates an awaitable timer from an absolute microsecond timestamp.                                                  | Call on the scheduler owner thread; a pending await resumes on the completion thread.                                |
-| `ErinnTaskTimerExtensions.FromMilliseconds(...)`                      | Converts an absolute millisecond timestamp to microseconds and creates an awaitable timer.                          | Call on the scheduler owner thread; a pending await resumes on the completion thread.                                |
-| `ErinnTaskTimerExtensions.FromSeconds(...)`                           | Converts an absolute finite, non-negative seconds timestamp to microseconds.                                        | Call on the scheduler owner thread; a pending await resumes on the completion thread.                                |
-| `ErinnTaskTimerExtensions.FromTimeSpan(...)`                          | Converts a non-negative absolute `TimeSpan` timestamp to microseconds.                                              | Call on the scheduler owner thread; a pending await resumes on the completion thread.                                |
+| API                                                                   | Behavior                                                                                                  | Threading contract                                                                                                   |
+|-----------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| `ErinnTask.CompletedTask`                                             | Completed non-generic operation.                                                                          | No scheduler affinity; completes synchronously.                                                                      |
+| `ErinnTask.FromResult<T>(T result)`                                   | Completed `ErinnTask<T>` with an inline result.                                                           | No scheduler affinity; completes synchronously.                                                                      |
+| `ErinnTask.GetAwaiter()` / `ErinnTask<T>.GetAwaiter()`                | Awaiter entry points used by the C# compiler. Manual consumption must follow the single-consumption rule. | No fixed thread affinity; source-backed operations allow one consumer and completion/registration may cross threads. |
+| `ErinnTimerScheduler.Create()`                                        | Creates a new independent scheduler. The constructor is not public.                                       | Choose the thread that will own it; subsequent scheduler operations stay on that thread.                             |
+| `ErinnTimerScheduler.Create<T>(ulong, Action<ErinnTimerTag, T?>, T?)` | Schedules a callback with a payload and returns its cancellation handle.                                  | Scheduler owner thread only; callback runs inline on the thread that triggers it.                                    |
+| `ErinnTimerScheduler.Update(ulong)`                                   | Runs all timers due at or before the supplied absolute timestamp.                                         | Scheduler owner thread only; callbacks and continuations run inline.                                                 |
+| `ErinnTimerScheduler.OnException`                                     | Gets or sets the single timer callback exception handler.                                                 | Read and write on the scheduler owner thread.                                                                        |
+| `ErinnTimerScheduler.Dispose()`                                       | Completes all pending timer callbacks with `Disposed` and releases scheduler storage.                     | Scheduler owner thread only; pending callbacks run inline during disposal.                                           |
+| `ErinnTimerCancelHandle.Cancel()`                                     | Cancels one pending timer and invokes its callback with `Canceled`.                                       | Scheduler owner thread only; a registered continuation can run inline before return.                                 |
+| `ErinnTimerCancelHandle.IsCreated`                                    | Reports whether the scheduler issued this handle; it stays true after completion or disposal.             | Reads handle state only; no scheduler access.                                                                        |
+| `ErinnTimerTag`                                                       | Completion result tag returned to a timer callback or awaiter: `Ok`, `Canceled`, or `Disposed`.           | Plain enum value; no thread affinity.                                                                                |
+| `ErinnTimerSchedulerExtensions.WaitUntilMicroseconds(...)`            | Creates an awaitable timer from an absolute microsecond timestamp.                                        | Call on the scheduler owner thread; a pending await resumes on the completion thread.                                |
+| `ErinnTimerSchedulerExtensions.WaitUntilMilliseconds(...)`            | Converts an absolute millisecond timestamp to microseconds and creates an awaitable timer.                | Call on the scheduler owner thread; a pending await resumes on the completion thread.                                |
+| `ErinnTimerSchedulerExtensions.WaitUntilSeconds(...)`                 | Converts an absolute finite, non-negative seconds timestamp to microseconds.                              | Call on the scheduler owner thread; a pending await resumes on the completion thread.                                |
+| `ErinnTimerSchedulerExtensions.WaitUntilTimeSpan(...)`                | Converts a non-negative absolute `TimeSpan` timestamp to microseconds.                                    | Call on the scheduler owner thread; a pending await resumes on the completion thread.                                |
 
 ## Common mistakes
 
 - **Passing a duration as a timestamp.** Compute `deadline = now + delay` using the same clock and unit as the future `Update` calls.
-- **Updating in the wrong unit.** The `FromMilliseconds`, `FromSeconds`, and `FromTimeSpan` methods convert their input to microseconds. `Update` must still use microseconds for those timers.
+- **Updating in the wrong unit.** The `WaitUntilMilliseconds`, `WaitUntilSeconds`, and `WaitUntilTimeSpan` methods convert their input to microseconds. `Update` must still use microseconds for those timers.
 - **Expecting an automatic timer thread.** The application must call `Update`; no timer fires while the scheduler is not being advanced.
-- **Treating `Canceled` or `Fault` as exceptions.** They are `ErinnTimerTag` values returned by the awaitable timer.
+- **Treating `Canceled` or `Disposed` as exceptions.** They are `ErinnTimerTag` values returned by the awaitable timer.
 - **Assuming an await resumes on its original context.** Continuations run inline on the completion thread; no context is captured.
 - **Using one scheduler from multiple threads.** Keep all operations on its owning thread or marshal them there yourself.
 - **Awaiting a source-backed operation twice.** Consume it once, even if multiple struct copies exist.
-- **Assuming `token.IsValid` means pending.** It only means the token was created; `Cancel()` reports whether it canceled a live timer.
+- **Assuming `handle.IsCreated` means pending.** It only means the scheduler issued the handle; `Cancel()` reports whether it canceled a live timer.
 - **Assuming callback exceptions are swallowed.** Configure `OnException` deliberately or handle the exceptions that propagate from `Update`, `Cancel`, and `Dispose`.
-- **Assuming `FromTimeSpan` accepts a delay.** It represents an absolute timestamp relative to the same origin used by `Update`.
+- **Assuming `WaitUntilTimeSpan` accepts a delay.** It represents an absolute timestamp relative to the same origin used by `Update`.
 
 ## Guidance for AI agents and contributors
 
@@ -456,8 +471,8 @@ Use this section as the repository-specific operating contract when helping with
 1. Select `ErinnTask` for no result and `ErinnTask<T>` for a result. Use `await`; do not assume Task-specific APIs or implicit conversions exist.
 2. Treat source-backed operations as one-shot. Do not duplicate consumption or register more than one continuation.
 3. Treat every timer input as an absolute timestamp. Define the clock origin and unit, convert explicitly, and keep `Update` in that same domain. The extension methods use microseconds after conversion.
-4. Keep a scheduler and its cancellation tokens on one owner thread. Do not assume the thread-affinity marker enforces this at runtime.
-5. Handle `Success`, `Canceled`, and `Fault` as distinct status values. They are not exceptions.
+4. Keep a scheduler and its cancellation handles on one owner thread. Do not assume the thread-affinity marker enforces this at runtime.
+5. Handle `Ok`, `Canceled`, and `Disposed` as distinct completion results. They are not exceptions.
 6. Remember that continuations and callbacks run inline. Avoid blocking work and be explicit about reentrancy and dispatch to other contexts.
 7. Decide how callback exceptions should be handled by setting `OnException` or by handling exceptions from the triggering operation.
 
@@ -467,7 +482,7 @@ Use this section as the repository-specific operating contract when helping with
 2. Keep changes local to a demonstrated need. Do not add runtime checks, synchronization, abstractions, or allocations solely for hypothetical future use.
 3. Follow the existing exception conventions: use `ThrowHelpers` and `SR` for established validation paths, and do not rename `ExceptionArgument` values as unrelated cleanup.
 4. Preserve the one-continuation/one-consumption lifecycle and the rule that pooled sources are not reused until active calls return.
-5. Keep timer queue, bucket, token, and disposal operations single-thread-affine unless the entire scheduler design is deliberately changed and validated. The thread-affinity attribute is metadata only.
+5. Keep timer queue, bucket, handle, and disposal operations single-thread-affine unless the entire scheduler design is deliberately changed and validated. The thread-affinity attribute is metadata only.
 6. Preserve exception paths: callbacks are removed before invocation; `OnException`, `Update`, `Cancel`, and `Dispose` have different propagation behavior.
 7. Do not claim thread safety, context capture, cancellation exceptions, automatic clocking, or zero allocations unless the implementation and a representative verification demonstrate it.
 8. New C# files named after generic types must include the type's generic arity in the filename. For example:

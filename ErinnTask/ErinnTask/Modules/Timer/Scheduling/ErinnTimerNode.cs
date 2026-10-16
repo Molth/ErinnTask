@@ -19,7 +19,7 @@ namespace Erinn
         /// <summary>
         ///     The index of the entry inside its bucket.
         /// </summary>
-        public readonly int BucketId;
+        public readonly int SlotIndex;
 
         /// <summary>
         ///     The timestamp at which the timer fires.
@@ -35,13 +35,13 @@ namespace Erinn
         ///     Initializes a new instance of the <see cref="ErinnTimerNode" /> structure.
         /// </summary>
         /// <param name="bucket">The non-null bucket that owns the callback.</param>
-        /// <param name="bucketId">The non-negative allocated slot index inside <paramref name="bucket" />.</param>
+        /// <param name="slotIndex">The non-negative allocated slot index inside <paramref name="bucket" />.</param>
         /// <param name="timestamp">The absolute timestamp at which the timer fires, in the scheduler's time domain.</param>
         /// <param name="uid">The non-zero unique id of the timer entry.</param>
-        public ErinnTimerNode(IErinnTimerBucket bucket, int bucketId, ulong timestamp, ulong uid)
+        public ErinnTimerNode(IErinnTimerBucket bucket, int slotIndex, ulong timestamp, ulong uid)
         {
             Bucket = bucket;
-            BucketId = bucketId;
+            SlotIndex = slotIndex;
             Timestamp = timestamp;
             Uid = uid;
         }
