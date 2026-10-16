@@ -16,7 +16,7 @@ namespace Erinn
 
         /// <summary>
         ///     The timer was canceled before it reached its timestamp and was invoked by
-        ///     <see cref="ErinnTimerCancelHandle.Cancel" />.
+        ///     <see cref="ErinnTimerHandle.Cancel" />.
         /// </summary>
         Canceled = 2,
 

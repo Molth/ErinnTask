@@ -79,7 +79,7 @@ namespace Erinn
         ///         <item>
         ///             <description>
         ///                 Await the operation exactly once. Its continuation runs inline on the thread calling
-        ///                 <see cref="ErinnTimerScheduler.Update" />, <see cref="ErinnTimerCancelHandle.Cancel" />, or
+        ///                 <see cref="ErinnTimerScheduler.Update" />, <see cref="ErinnTimerHandle.Cancel" />, or
         ///                 <see cref="ErinnTimerScheduler.Dispose" />.
         ///             </description>
         ///         </item>
@@ -101,7 +101,7 @@ namespace Erinn
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        public static ErinnTask<ErinnTimerTag> WaitUntilMicroseconds(this ErinnTimerScheduler scheduler, ulong timestamp, out ErinnTimerCancelHandle cancelHandle)
+        public static ErinnTask<ErinnTimerTag> WaitUntilMicroseconds(this ErinnTimerScheduler scheduler, ulong timestamp, out ErinnTimerHandle cancelHandle)
         {
             ThrowHelpers.ThrowIfNull(scheduler, ExceptionArgument.scheduler);
 
@@ -184,14 +184,14 @@ namespace Erinn
         ///         <item>
         ///             <description>
         ///                 After validation and conversion, this method directly calls
-        ///                 <see cref="WaitUntilMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerCancelHandle)" /> to create
+        ///                 <see cref="WaitUntilMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerHandle)" /> to create
         ///                 the awaitable timer.
         ///             </description>
         ///         </item>
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        public static ErinnTask<ErinnTimerTag> WaitUntilMilliseconds(this ErinnTimerScheduler scheduler, ulong timestamp, out ErinnTimerCancelHandle cancelHandle)
+        public static ErinnTask<ErinnTimerTag> WaitUntilMilliseconds(this ErinnTimerScheduler scheduler, ulong timestamp, out ErinnTimerHandle cancelHandle)
         {
             ThrowHelpers.ThrowIfNull(scheduler, ExceptionArgument.scheduler);
             ThrowHelpers.ThrowIfTimerMillisecondsOutOfRange(timestamp, ExceptionArgument.timestamp);
@@ -262,97 +262,19 @@ namespace Erinn
         ///         <item>
         ///             <description>
         ///                 After validation and conversion, this method directly calls
-        ///                 <see cref="WaitUntilMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerCancelHandle)" /> to create
+        ///                 <see cref="WaitUntilMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerHandle)" /> to create
         ///                 the awaitable timer.
         ///             </description>
         ///         </item>
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        public static ErinnTask<ErinnTimerTag> WaitUntilSeconds(this ErinnTimerScheduler scheduler, double timestamp, out ErinnTimerCancelHandle cancelHandle)
+        public static ErinnTask<ErinnTimerTag> WaitUntilSeconds(this ErinnTimerScheduler scheduler, double timestamp, out ErinnTimerHandle cancelHandle)
         {
             ThrowHelpers.ThrowIfNull(scheduler, ExceptionArgument.scheduler);
             ThrowHelpers.ThrowIfTimerSecondsOutOfRange(timestamp, ExceptionArgument.timestamp);
 
             return scheduler.WaitUntilMicroseconds((ulong)(timestamp * 1000000d), out cancelHandle);
-        }
-
-        /// <summary>
-        ///     Schedules an awaitable timer at the specified absolute timestamp represented by a <see cref="TimeSpan" />.
-        /// </summary>
-        /// <param name="scheduler">
-        ///     The scheduler that owns the timer. It must not be <see langword="null" /> or disposed;
-        ///     operations on it must remain on its owning thread.
-        /// </param>
-        /// <param name="timestamp">
-        ///     The absolute timestamp represented by a <see cref="TimeSpan" />.
-        ///     <list type="bullet">
-        ///         <item>
-        ///             <description>
-        ///                 It must be non-negative and use the same time origin as timestamps passed to
-        ///                 <see cref="ErinnTimerScheduler.Update" />.
-        ///             </description>
-        ///         </item>
-        ///         <item>
-        ///             <description>
-        ///                 The method divides <see cref="TimeSpan.Ticks" /> by 10 to convert 100-nanosecond ticks to
-        ///                 microseconds; remaining sub-microsecond ticks are truncated.
-        ///             </description>
-        ///         </item>
-        ///         <item>
-        ///             <description>The resulting value is between <c>0</c> and <c>long.MaxValue / 10</c> microseconds.</description>
-        ///         </item>
-        ///     </list>
-        /// </param>
-        /// <param name="cancelHandle">On successful return, receives a handle that can cancel this timer before it completes.</param>
-        /// <returns>
-        ///     An operation that completes with one of these tags:
-        ///     <list type="bullet">
-        ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Ok" /> when an update reaches the timestamp.</description>
-        ///         </item>
-        ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Canceled" /> when the timer is canceled.</description>
-        ///         </item>
-        ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Disposed" /> when the scheduler is disposed first.</description>
-        ///         </item>
-        ///     </list>
-        /// </returns>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="scheduler" /> is <see langword="null" />.</exception>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown if the timestamp is negative.</exception>
-        /// <exception cref="ObjectDisposedException">Thrown if the scheduler has already been disposed.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if the scheduler has exhausted all non-zero timer ids.</exception>
-        /// <remarks>
-        ///     <list type="bullet">
-        ///         <item>
-        ///             <description>
-        ///                 This is an absolute timestamp, not a delay. The converted microsecond value is compared
-        ///                 directly with timestamps passed to <see cref="ErinnTimerScheduler.Update" />.
-        ///             </description>
-        ///         </item>
-        ///         <item>
-        ///             <description>
-        ///                 A value of zero is scheduled normally and still waits for an update, cancellation, or
-        ///                 scheduler disposal.
-        ///             </description>
-        ///         </item>
-        ///         <item>
-        ///             <description>
-        ///                 After validation and conversion, this method directly calls
-        ///                 <see cref="WaitUntilMicroseconds(ErinnTimerScheduler, ulong, out ErinnTimerCancelHandle)" /> to create
-        ///                 the awaitable timer.
-        ///             </description>
-        ///         </item>
-        ///     </list>
-        /// </remarks>
-        [ThreadAffine]
-        public static ErinnTask<ErinnTimerTag> WaitUntilTimeSpan(this ErinnTimerScheduler scheduler, TimeSpan timestamp, out ErinnTimerCancelHandle cancelHandle)
-        {
-            ThrowHelpers.ThrowIfNull(scheduler, ExceptionArgument.scheduler);
-            ThrowHelpers.ThrowIfNegative(timestamp.Ticks, ExceptionArgument.timestamp);
-
-            return scheduler.WaitUntilMicroseconds((ulong)(timestamp.Ticks / 10L), out cancelHandle);
         }
 
         /// <summary>

@@ -37,7 +37,7 @@ namespace Erinn
     ///         <item>
     ///             <description>
     ///                 Callbacks execute inline on the thread that calls <see cref="Update" />,
-    ///                 <see cref="ErinnTimerCancelHandle.Cancel" />, or <see cref="Dispose" />. Timers with equal
+    ///                 <see cref="ErinnTimerHandle.Cancel" />, or <see cref="Dispose" />. Timers with equal
     ///                 timestamps run in scheduling order.
     ///             </description>
     ///         </item>
@@ -113,13 +113,13 @@ namespace Erinn
         ///         <item>
         ///             <description>
         ///                 When this is <see langword="null" />, a callback exception is thrown to the caller of
-        ///                 <see cref="Update" /> and <see cref="ErinnTimerCancelHandle.Cancel" />.
+        ///                 <see cref="Update" /> and <see cref="ErinnTimerHandle.Cancel" />.
         ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
         ///                 When this callback itself throws, that exception is propagated from <see cref="Update" /> and
-        ///                 <see cref="ErinnTimerCancelHandle.Cancel" />, and is collected into the
+        ///                 <see cref="ErinnTimerHandle.Cancel" />, and is collected into the
         ///                 <see cref="AggregateException" /> thrown by <see cref="Dispose" />.
         ///             </description>
         ///         </item>
@@ -298,7 +298,7 @@ namespace Erinn
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        public ErinnTimerCancelHandle Create<T>(ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
+        public ErinnTimerHandle Create<T>(ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
         {
             ThrowHelpers.ThrowIfDisposed(_disposed, nameof(ErinnTimerScheduler));
             ThrowHelpers.ThrowIfNull(callback, ExceptionArgument.callback);
@@ -330,12 +330,12 @@ namespace Erinn
         /// <typeparam name="T">The callback parameter type.</typeparam>
         /// <returns>The handle that cancels the queued timer.</returns>
         [ThreadAffine]
-        private ErinnTimerCancelHandle Schedule<TSlot, T>(ErinnTimerBucket<TSlot> bucket, ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
+        private ErinnTimerHandle Schedule<TSlot, T>(ErinnTimerBucket<TSlot> bucket, ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
         {
             var uid = ++_uid;
             var slotIndex = bucket.Allocate(uid, callback, data);
             _timers.Enqueue(new ErinnTimerNode(bucket, slotIndex, timestamp, uid));
-            return new ErinnTimerCancelHandle(this, bucket, slotIndex, uid);
+            return new ErinnTimerHandle(this, bucket, slotIndex, uid);
         }
 
         /// <summary>

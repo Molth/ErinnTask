@@ -30,7 +30,7 @@ namespace Erinn
     ///     </list>
     /// </remarks>
     [StructLayout(LayoutKind.Sequential)]
-    public readonly struct ErinnTimerCancelHandle : IIsCreated, IEquatable<ErinnTimerCancelHandle>
+    public readonly struct ErinnTimerHandle : IIsCreated, IEquatable<ErinnTimerHandle>
     {
         /// <summary>
         ///     The scheduler that owns the timer, or <see langword="null" /> when the handle is empty.
@@ -53,13 +53,13 @@ namespace Erinn
         private readonly ulong _uid;
 
         /// <summary>
-        ///     Initializes a new instance of the <see cref="ErinnTimerCancelHandle" /> structure.
+        ///     Initializes a new instance of the <see cref="ErinnTimerHandle" /> structure.
         /// </summary>
         /// <param name="scheduler">The scheduler that owns the timer.</param>
         /// <param name="bucket">The bucket that owns the timer.</param>
         /// <param name="slotIndex">The index of the entry inside its bucket.</param>
         /// <param name="uid">The unique id of the timer entry.</param>
-        internal ErinnTimerCancelHandle(ErinnTimerScheduler scheduler, IErinnTimerBucket bucket, int slotIndex, ulong uid)
+        internal ErinnTimerHandle(ErinnTimerScheduler scheduler, IErinnTimerBucket bucket, int slotIndex, ulong uid)
         {
             _scheduler = scheduler;
             _bucket = bucket;
@@ -115,7 +115,7 @@ namespace Erinn
         ///     <see langword="true" /> if both handles have the same scheduler reference and timer id; otherwise
         ///     <see langword="false" />.
         /// </returns>
-        public bool Equals(ErinnTimerCancelHandle other) => ReferenceEquals(_scheduler, other._scheduler) && _uid == other._uid;
+        public bool Equals(ErinnTimerHandle other) => ReferenceEquals(_scheduler, other._scheduler) && _uid == other._uid;
 
         /// <summary>
         ///     Indicates whether this handle is equal to an object of the same handle type.
@@ -125,7 +125,7 @@ namespace Erinn
         ///     <see langword="true" /> if <paramref name="obj" /> is an equal timer handle; otherwise,
         ///     <see langword="false" />.
         /// </returns>
-        public override bool Equals(object? obj) => obj is ErinnTimerCancelHandle other && Equals(other);
+        public override bool Equals(object? obj) => obj is ErinnTimerHandle other && Equals(other);
 
         /// <summary>
         ///     Returns a hash code based on the owning scheduler reference and timer id. Equal handles return equal hash codes.
@@ -142,7 +142,7 @@ namespace Erinn
         ///     <see langword="true" /> if both handles refer to the same scheduler and timer id; otherwise
         ///     <see langword="false" />.
         /// </returns>
-        public static bool operator ==(ErinnTimerCancelHandle left, ErinnTimerCancelHandle right) => left.Equals(right);
+        public static bool operator ==(ErinnTimerHandle left, ErinnTimerHandle right) => left.Equals(right);
 
         /// <summary>
         ///     Indicates whether two handles refer to different schedulers or timer ids.
@@ -153,6 +153,6 @@ namespace Erinn
         ///     <see langword="true" /> if the handles differ in scheduler reference or timer id; otherwise
         ///     <see langword="false" />.
         /// </returns>
-        public static bool operator !=(ErinnTimerCancelHandle left, ErinnTimerCancelHandle right) => !left.Equals(right);
+        public static bool operator !=(ErinnTimerHandle left, ErinnTimerHandle right) => !left.Equals(right);
     }
 }
