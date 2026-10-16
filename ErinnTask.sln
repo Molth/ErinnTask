@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ErinnTask", "ErinnTask\ErinnTask.csproj", "{BD9875C4-30A5-438B-83F5-923E60B38433}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BD9875C4-30A5-438B-83F5-923E60B38433}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD9875C4-30A5-438B-83F5-923E60B38433}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD9875C4-30A5-438B-83F5-923E60B38433}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD9875C4-30A5-438B-83F5-923E60B38433}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
