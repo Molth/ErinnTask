@@ -73,17 +73,18 @@ namespace Erinn
         /// </param>
         /// <exception cref="ArgumentOutOfRangeException">
         ///     Thrown when <paramref name="milliseconds" /> is greater than
-        ///     <c>ulong.MaxValue / 1000</c>.
+        ///     <c>18446744073709551UL</c>.
         /// </exception>
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>
-        ///             <description>Values from zero through <c>ulong.MaxValue / 1000</c>, inclusive, are accepted.</description>
+        ///             <description>Values from zero through <c>18446744073709551UL</c>, inclusive, are accepted.</description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 This bound ensures that a subsequent multiplication by 1,000 to produce microseconds does not overflow
-        ///                 <see cref="ulong" />.
+        ///                 Multiplying the upper bound by 1,000 produces
+        ///                 <c>18446744073709551000UL</c>, which fits in <see cref="ulong" />; the next millisecond value
+        ///                 would exceed <see cref="ulong.MaxValue" /> after conversion to microseconds.
         ///             </description>
         ///         </item>
         ///     </list>
@@ -91,7 +92,7 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ThrowIfTimerMillisecondsOutOfRange(ulong milliseconds, ExceptionArgument paramName)
         {
-            if (milliseconds > ulong.MaxValue / 1000UL)
+            if (milliseconds > 18446744073709551UL)
                 throw new ArgumentOutOfRangeException(GetArgumentName(paramName), milliseconds, SR.ArgumentOutOfRange_TimerTimestampOutOfRange);
         }
 
@@ -116,7 +117,11 @@ namespace Erinn
         ///             <description>The value must be finite and non-negative.</description>
         ///         </item>
         ///         <item>
-        ///             <description>Multiplying by 1,000,000 as a <see cref="double" /> must produce a value less than 2^64.</description>
+        ///             <description>
+        ///                 Values below <c>18446744073709.55d</c> seconds are accepted. This exclusive upper bound is the first
+        ///                 representable <see cref="double" /> seconds value whose product by 1,000,000 as a <see cref="double" />
+        ///                 is at least 2^64.
+        ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>Conversion to microseconds truncates any fractional microsecond.</description>
@@ -126,8 +131,7 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ThrowIfTimerSecondsOutOfRange(double seconds, ExceptionArgument paramName)
         {
-            var microseconds = seconds * 1000000d;
-            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0d || microseconds >= 18446744073709551616d)
+            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || double.IsNegative(seconds) || seconds >= 18446744073709.55d)
                 throw new ArgumentOutOfRangeException(GetArgumentName(paramName), seconds, SR.ArgumentOutOfRange_TimerTimestampOutOfRange);
         }
 
