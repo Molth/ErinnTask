@@ -46,7 +46,6 @@ namespace Erinn
         ///     owning thread.
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [ThreadAffine]
         public static ErinnTimerSchedulerMicrosecondsView InMicroseconds(this ErinnTimerScheduler scheduler)
         {
             ThrowHelpers.ThrowIfNull(scheduler, ExceptionArgument.scheduler);

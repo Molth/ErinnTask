@@ -7,17 +7,18 @@ using System.Runtime.InteropServices;
 namespace Erinn
 {
     /// <summary>
-    ///     Provides timer scheduling, updating, and awaitable operations using microsecond timestamps for an existing
-    ///     scheduler.
+    ///     Provides timer scheduling, updating, and awaitable operations
+    ///     using microsecond timestamps for an existing scheduler.
     /// </summary>
     /// <remarks>
     ///     <list type="bullet">
     ///         <item>
     ///             <description>
     ///                 <see cref="Schedule{T}" />, <see cref="WaitUntil" />, and
-    ///                 <see cref="Update" /> use absolute microsecond timestamps. <see cref="WaitUntilMilliseconds" /> and
-    ///                 <see cref="WaitUntilSeconds" /> convert their absolute timestamps to microseconds before
-    ///                 scheduling.
+    ///                 <see cref="Update" /> use absolute microsecond timestamps.
+    ///                 <see cref="WaitUntilMilliseconds" /> and
+    ///                 <see cref="WaitUntilSeconds" /> convert their absolute timestamps to microseconds
+    ///                 before scheduling.
     ///             </description>
     ///         </item>
     ///         <item>
@@ -258,14 +259,13 @@ namespace Erinn
         ///     <list type="bullet">
         ///         <item>
         ///             <description>
-        ///                 It must use the same time origin as timestamps passed to
-        ///                 <see cref="ErinnTimerScheduler.Update" />.
+        ///                 It must use the same time origin as timestamps passed to <see cref="Update" />.
         ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 It must be between <c>0</c> and <c>ulong.MaxValue / 1000</c>, inclusive, so conversion does
-        ///                 not overflow.
+        ///                 It must be from <c>0</c> through <c>18446744073709551UL</c>, inclusive. A larger value is
+        ///                 rejected because multiplying it by 1,000 would exceed <see cref="ulong.MaxValue" />.
         ///             </description>
         ///         </item>
         ///         <item>
@@ -289,7 +289,10 @@ namespace Erinn
         ///     </list>
         /// </returns>
         /// <exception cref="ArgumentNullException">Thrown if this is a default-initialized view without a scheduler.</exception>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown if the converted timestamp is too large.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown when <paramref name="timestamp" /> is greater than
+        ///     <c>18446744073709551UL</c>.
+        /// </exception>
         /// <exception cref="ObjectDisposedException">Thrown if the scheduler has already been disposed.</exception>
         /// <exception cref="InvalidOperationException">
         ///     Thrown if the scheduler has exhausted all non-zero timer uids or the pooled completion source cannot be reused.
@@ -335,13 +338,14 @@ namespace Erinn
         ///         <item>
         ///             <description>
         ///                 It must be finite and non-negative, and use the same time origin as timestamps passed to
-        ///                 <see cref="ErinnTimerScheduler.Update" />.
+        ///                 <see cref="Update" />.
         ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 After conversion, it must be less than <c>2^64</c> microseconds to fit the scheduler's
-        ///                 unsigned timestamp.
+        ///                 It must be less than <c>18446744073709.55d</c>. This is the first representable
+        ///                 <see cref="double" /> seconds value whose product by 1,000,000, evaluated as a
+        ///                 <see cref="double" />, is at least <c>2^64</c>, so the boundary itself is rejected.
         ///             </description>
         ///         </item>
         ///         <item>
@@ -365,7 +369,10 @@ namespace Erinn
         ///     </list>
         /// </returns>
         /// <exception cref="ArgumentNullException">Thrown if this is a default-initialized view without a scheduler.</exception>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown if the timestamp is negative, non-finite, or too large.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown when <paramref name="timestamp" /> is negative, non-finite, or greater than or equal to
+        ///     <c>18446744073709.55d</c>.
+        /// </exception>
         /// <exception cref="ObjectDisposedException">Thrown if the scheduler has already been disposed.</exception>
         /// <exception cref="InvalidOperationException">
         ///     Thrown if the scheduler has exhausted all non-zero timer uids or the pooled completion source cannot be reused.
