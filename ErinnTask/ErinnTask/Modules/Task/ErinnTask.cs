@@ -114,15 +114,18 @@ namespace Erinn
             public void GetResult() => _awaiter.GetResult();
 
             /// <summary>
-            ///     Registers the continuation to run when the operation completes. The continuation is invoked inline on
-            ///     the completing thread and the execution context is not captured. Only one continuation can be registered
-            ///     on a source-backed operation.
+            ///     Registers the continuation to run when the operation completes. An already completed operation
+            ///     invokes it inline on this thread; otherwise, the completing thread invokes it inline. The execution
+            ///     context is not captured, and only one continuation can be registered on a source-backed operation.
             /// </summary>
             /// <param name="continuation">The continuation to invoke.</param>
             /// <exception cref="ArgumentNullException">Thrown if <paramref name="continuation" /> is null.</exception>
             /// <exception cref="InvalidOperationException">
             ///     Thrown if the source version is stale or consumed, or a continuation is
             ///     already registered.
+            /// </exception>
+            /// <exception cref="Exception">
+            ///     Propagates an exception thrown by <paramref name="continuation" /> if this call invokes it inline.
             /// </exception>
             public void OnCompleted(Action continuation) => _awaiter.OnCompleted(continuation);
 
@@ -135,6 +138,9 @@ namespace Erinn
             /// <exception cref="InvalidOperationException">
             ///     Thrown if the source version is stale or consumed, or a continuation is
             ///     already registered.
+            /// </exception>
+            /// <exception cref="Exception">
+            ///     Propagates an exception thrown by <paramref name="continuation" /> if this call invokes it inline.
             /// </exception>
             public void UnsafeOnCompleted(Action continuation) => _awaiter.UnsafeOnCompleted(continuation);
         }

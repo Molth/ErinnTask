@@ -6,8 +6,9 @@ using System.Runtime.InteropServices;
 namespace Erinn
 {
     /// <summary>
-    ///     Represents a handle returned by <see cref="ErinnTimerScheduler.Create{T}" /> that allows a scheduled timer
-    ///     to be canceled before it fires. Canceling still invokes the callback, reported with
+    ///     Represents a handle returned by <see cref="ErinnTimerScheduler.Schedule{T}" /> or
+    ///     <see cref="ErinnTimerSchedulerExtensions.WaitUntil" /> that allows a scheduled timer to be canceled before
+    ///     it fires. Canceling still invokes the callback, reported with
     ///     <see cref="ErinnTimerTag.Canceled" />.
     /// </summary>
     /// <remarks>
@@ -43,12 +44,12 @@ namespace Erinn
         private readonly IErinnTimerBucket? _bucket;
 
         /// <summary>
-        ///     The index of the entry inside its bucket; meaningful only together with the scheduler and unique id.
+        ///     The index of the entry inside its bucket; meaningful only together with the scheduler and timer uid.
         /// </summary>
         private readonly int _slotIndex;
 
         /// <summary>
-        ///     The unique id of the timer entry; <c>0</c> when the handle is empty.
+        ///     The timer uid of the entry; <c>0</c> when the handle is empty.
         /// </summary>
         private readonly ulong _uid;
 
@@ -58,7 +59,7 @@ namespace Erinn
         /// <param name="scheduler">The scheduler that owns the timer.</param>
         /// <param name="bucket">The bucket that owns the timer.</param>
         /// <param name="slotIndex">The index of the entry inside its bucket.</param>
-        /// <param name="uid">The unique id of the timer entry.</param>
+        /// <param name="uid">The timer uid of the entry.</param>
         internal ErinnTimerHandle(ErinnTimerScheduler scheduler, IErinnTimerBucket bucket, int slotIndex, ulong uid)
         {
             _scheduler = scheduler;
@@ -77,6 +78,24 @@ namespace Erinn
         ///     reports whether a pending timer was actually canceled.
         /// </remarks>
         public bool IsCreated => _scheduler != null;
+
+        /// <summary>
+        ///     Gets the scheduler that issued this handle, or <see langword="null" /> when this is a default handle.
+        /// </summary>
+        /// <remarks>
+        ///     The returned scheduler may already be disposed. This property reports handle ownership; it does not
+        ///     indicate whether the timer is still pending.
+        /// </remarks>
+        public ErinnTimerScheduler? Scheduler => _scheduler;
+
+        /// <summary>
+        ///     Gets this timer's non-zero uid, or <c>0</c> when this is a default handle.
+        /// </summary>
+        /// <remarks>
+        ///     Timer uids are unique only within their owning scheduler. Use <see cref="Scheduler" /> together with this
+        ///     value to identify a timer across scheduler instances.
+        /// </remarks>
+        public ulong Uid => _uid;
 
         /// <summary>
         ///     Cancels the timer associated with this handle and immediately invokes its callback on the calling thread with
@@ -107,12 +126,12 @@ namespace Erinn
         public bool Cancel() => _scheduler != null && _scheduler.Cancel(_bucket!, _slotIndex, _uid);
 
         /// <summary>
-        ///     Indicates whether this handle refers to the same scheduler and timer id as another handle. Bucket indices
-        ///     are not compared; default handles compare equal to one another.
+        ///     Indicates whether this handle refers to the same scheduler and timer uid as another handle.
+        ///     Bucket indices are not compared; default handles compare equal to one another.
         /// </summary>
         /// <param name="other">The handle to compare with this handle.</param>
         /// <returns>
-        ///     <see langword="true" /> if both handles have the same scheduler reference and timer id; otherwise
+        ///     <see langword="true" /> if both handles have the same scheduler reference and timer uid; otherwise
         ///     <see langword="false" />.
         /// </returns>
         public bool Equals(ErinnTimerHandle other) => ReferenceEquals(_scheduler, other._scheduler) && _uid == other._uid;
@@ -128,29 +147,30 @@ namespace Erinn
         public override bool Equals(object? obj) => obj is ErinnTimerHandle other && Equals(other);
 
         /// <summary>
-        ///     Returns a hash code based on the owning scheduler reference and timer id. Equal handles return equal hash codes.
+        ///     Returns a hash code based on the owning scheduler reference and timer uid.
+        ///     Equal handles return equal hash codes.
         /// </summary>
         /// <returns>The hash code for this handle.</returns>
         public override int GetHashCode() => HashCode.Combine(_scheduler, _uid);
 
         /// <summary>
-        ///     Indicates whether two handles refer to the same scheduler and timer id.
+        ///     Indicates whether two handles refer to the same scheduler and timer uid.
         /// </summary>
         /// <param name="left">The first handle to compare.</param>
         /// <param name="right">The second handle to compare.</param>
         /// <returns>
-        ///     <see langword="true" /> if both handles refer to the same scheduler and timer id; otherwise
+        ///     <see langword="true" /> if both handles refer to the same scheduler and timer uid; otherwise
         ///     <see langword="false" />.
         /// </returns>
         public static bool operator ==(ErinnTimerHandle left, ErinnTimerHandle right) => left.Equals(right);
 
         /// <summary>
-        ///     Indicates whether two handles refer to different schedulers or timer ids.
+        ///     Indicates whether two handles refer to different schedulers or timer uids.
         /// </summary>
         /// <param name="left">The first handle to compare.</param>
         /// <param name="right">The second handle to compare.</param>
         /// <returns>
-        ///     <see langword="true" /> if the handles differ in scheduler reference or timer id; otherwise
+        ///     <see langword="true" /> if the handles differ in scheduler reference or timer uid; otherwise
         ///     <see langword="false" />.
         /// </returns>
         public static bool operator !=(ErinnTimerHandle left, ErinnTimerHandle right) => !left.Equals(right);

@@ -23,12 +23,12 @@ namespace Erinn
     ///         </item>
     ///     </list>
     /// </remarks>
-    internal interface IErinnTimerBucket
+    internal interface IErinnTimerBucket : IDisposable
     {
         /// <summary>
-        ///     Finds the queue position for a live entry whose slot and unique id match.
+        ///     Finds the queue position for a live entry whose slot and timer uid match.
         /// </summary>
-        /// <param name="uid">The unique timer id stored in the entry.</param>
+        /// <param name="uid">The timer uid stored in the entry.</param>
         /// <param name="slotIndex">The entry's slot index; values outside the allocated slot range are not live.</param>
         /// <param name="queueIndex">
         ///     When this method returns <see langword="true" />, contains the entry's current queue index;
@@ -38,7 +38,6 @@ namespace Erinn
         ///     <see langword="true" /> if the slot is live and matches <paramref name="uid" />; otherwise
         ///     <see langword="false" />.
         /// </returns>
-        [ThreadAffine]
         bool TryGetQueueIndex(ulong uid, int slotIndex, out int queueIndex);
 
         /// <summary>
@@ -49,13 +48,12 @@ namespace Erinn
         ///     The current heap position of that slot, in the range from zero to the number of queued timers minus
         ///     one.
         /// </param>
-        [ThreadAffine]
         void SetQueueIndex(int slotIndex, int index);
 
         /// <summary>
         ///     Attempts to complete a matching live entry and invokes its callback with the specified result tag.
         /// </summary>
-        /// <param name="uid">The unique id stored in the entry.</param>
+        /// <param name="uid">The timer uid stored in the entry.</param>
         /// <param name="slotIndex">The entry's slot index.</param>
         /// <param name="tag">
         ///     The completion reason to pass to the callback; callers supply a defined <see cref="ErinnTimerTag" />
@@ -66,13 +64,6 @@ namespace Erinn
         ///     <see langword="true" /> if the entry was live and matched <paramref name="uid" /> and its callback was
         ///     invoked; otherwise <see langword="false" />. A callback exception does not change a successful return.
         /// </returns>
-        [ThreadAffine]
         bool TryComplete(ulong uid, int slotIndex, ErinnTimerTag tag, out Exception? exception);
-
-        /// <summary>
-        ///     Releases callback and slot metadata after the owning scheduler has been disposed.
-        /// </summary>
-        [ThreadAffine]
-        void ReleaseStorage();
     }
 }

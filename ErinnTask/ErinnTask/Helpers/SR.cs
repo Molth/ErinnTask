@@ -43,9 +43,9 @@ namespace Erinn
         public const string InvalidOperation_TaskNotCompleted = "The operation has not completed.";
 
         /// <summary>
-        ///     The message used when a scheduler has exhausted its non-repeating timer ids.
+        ///     The message used when a scheduler has exhausted its non-repeating timer uids.
         /// </summary>
-        public const string InvalidOperation_TimerIdExhausted = "The scheduler has exhausted its timer id range.";
+        public const string InvalidOperation_TimerUidExhausted = "The scheduler has exhausted its timer uid range.";
 
         /// <summary>
         ///     The message used when a timer bucket entry changes during a single-threaded cancellation operation.

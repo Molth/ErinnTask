@@ -101,9 +101,9 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Registers the pooled state-machine continuation through the awaiter's context-capturing
+        ///     Registers the pooled state-machine continuation through the awaiter's
         ///     <see cref="INotifyCompletion.OnCompleted" /> method. The awaiter determines where and when the
-        ///     continuation runs.
+        ///     continuation runs and whether a context is captured.
         /// </summary>
         /// <param name="awaiter">The awaiter that supplies the completion signal.</param>
         /// <param name="stateMachine">The state machine to resume.</param>

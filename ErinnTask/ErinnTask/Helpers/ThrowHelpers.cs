@@ -26,6 +26,8 @@ namespace Erinn
         ///     The enum value mapped to the exception's <c>ParamName</c>; unrecognized values produce a null
         ///     parameter name.
         /// </param>
+        /// <typeparam name="T">An unmanaged type that satisfies the target framework's signed-number or comparison constraint.</typeparam>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="value" /> is negative.</exception>
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>
@@ -42,7 +44,6 @@ namespace Erinn
         ///         </item>
         ///     </list>
         /// </remarks>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="value" /> is negative.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ThrowIfNegative<T>(T value, ExceptionArgument paramName) where T : unmanaged,
 #if NET7_0_OR_GREATER
@@ -63,19 +64,30 @@ namespace Erinn
         ///     Throws an <see cref="ArgumentOutOfRangeException" /> if a millisecond timestamp cannot be
         ///     represented as an unsigned microsecond timestamp.
         /// </summary>
-        /// <param name="milliseconds">The unsigned millisecond timestamp to validate.</param>
+        /// <param name="milliseconds">
+        ///     The unsigned absolute timestamp in milliseconds to validate.
+        /// </param>
         /// <param name="paramName">
-        ///     The enum value mapped to the exception's <c>ParamName</c>; unrecognized values produce a null
+        ///     The enum value mapped to the exception's <c>ParamName</c>. An unrecognized value produces a null
         ///     parameter name.
         /// </param>
-        /// <remarks>
-        ///     Values from zero through <c>ulong.MaxValue / 1000</c>, inclusive, are accepted so multiplying by 1,000 cannot
-        ///     overflow.
-        /// </remarks>
         /// <exception cref="ArgumentOutOfRangeException">
-        ///     Thrown when <paramref name="milliseconds" /> exceeds the largest safely
-        ///     convertible value.
+        ///     Thrown when <paramref name="milliseconds" /> is greater than
+        ///     <c>ulong.MaxValue / 1000</c>.
         /// </exception>
+        /// <remarks>
+        ///     <list type="bullet">
+        ///         <item>
+        ///             <description>Values from zero through <c>ulong.MaxValue / 1000</c>, inclusive, are accepted.</description>
+        ///         </item>
+        ///         <item>
+        ///             <description>
+        ///                 This bound ensures that a subsequent multiplication by 1,000 to produce microseconds does not overflow
+        ///                 <see cref="ulong" />.
+        ///             </description>
+        ///         </item>
+        ///     </list>
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ThrowIfTimerMillisecondsOutOfRange(ulong milliseconds, ExceptionArgument paramName)
         {
@@ -87,16 +99,30 @@ namespace Erinn
         ///     Throws an <see cref="ArgumentOutOfRangeException" /> if a seconds timestamp cannot be represented
         ///     as an unsigned microsecond timestamp.
         /// </summary>
-        /// <param name="seconds">The timestamp measured in seconds; it must be finite and non-negative.</param>
+        /// <param name="seconds">
+        ///     The absolute timestamp in seconds to validate.
+        /// </param>
         /// <param name="paramName">
-        ///     The enum value mapped to the exception's <c>ParamName</c>; unrecognized values produce a null
+        ///     The enum value mapped to the exception's <c>ParamName</c>. An unrecognized value produces a null
         ///     parameter name.
         /// </param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown when <paramref name="seconds" /> is negative or non-finite, or when its converted microsecond
+        ///     value is greater than or equal to 2^64.
+        /// </exception>
         /// <remarks>
-        ///     Values are accepted only when multiplying by one million yields a value strictly less than 2^64 microseconds.
-        ///     Conversion later truncates the fractional microsecond.
+        ///     <list type="bullet">
+        ///         <item>
+        ///             <description>The value must be finite and non-negative.</description>
+        ///         </item>
+        ///         <item>
+        ///             <description>Multiplying by 1,000,000 as a <see cref="double" /> must produce a value less than 2^64.</description>
+        ///         </item>
+        ///         <item>
+        ///             <description>Conversion to microseconds truncates any fractional microsecond.</description>
+        ///         </item>
+        ///     </list>
         /// </remarks>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown for a negative, non-finite, or too-large seconds value.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ThrowIfTimerSecondsOutOfRange(double seconds, ExceptionArgument paramName)
         {
@@ -106,18 +132,18 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Throws an <see cref="InvalidOperationException" /> if the scheduler has used every non-zero timer id.
+        ///     Throws an <see cref="InvalidOperationException" /> if the scheduler has used every non-zero timer uid.
         /// </summary>
-        /// <param name="lastId">
-        ///     The most recently assigned timer id; zero is the initial value and all non-maximum values permit
-        ///     another id.
+        /// <param name="lastUid">
+        ///     The most recently assigned timer uid;
+        ///     zero is the initial value and all non-maximum values permit another uid.
         /// </param>
-        /// <exception cref="InvalidOperationException">Thrown when <paramref name="lastId" /> is <see cref="ulong.MaxValue" />.</exception>
+        /// <exception cref="InvalidOperationException">Thrown when <paramref name="lastUid" /> is <see cref="ulong.MaxValue" />.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void ThrowIfTimerIdExhausted(ulong lastId)
+        public static void ThrowIfTimerUidExhausted(ulong lastUid)
         {
-            if (lastId == ulong.MaxValue)
-                ThrowInvalidOperation(SR.InvalidOperation_TimerIdExhausted);
+            if (lastUid == ulong.MaxValue)
+                ThrowInvalidOperation(SR.InvalidOperation_TimerUidExhausted);
         }
 
         /// <summary>

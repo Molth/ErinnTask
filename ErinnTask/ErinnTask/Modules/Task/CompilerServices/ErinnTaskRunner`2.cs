@@ -114,8 +114,8 @@ namespace Erinn
 
         /// <summary>
         ///     Completes the pending operation with the specified result, publishes completion, and invokes a registered
-        ///     continuation inline. The runner is returned to the completing thread's pool after consumption and after
-        ///     active state-machine or callback calls have returned.
+        ///     continuation inline. After consumption and after active state-machine or callback calls have returned,
+        ///     the runner is returned to the thread-local pool of the thread that performs the final release.
         /// </summary>
         /// <param name="result">The result of the operation.</param>
         /// <exception cref="InvalidOperationException">
@@ -132,8 +132,8 @@ namespace Erinn
 
         /// <summary>
         ///     Completes the pending operation with the specified exception, publishes completion, and invokes a
-        ///     registered continuation inline. The runner is returned to the completing thread's pool after consumption
-        ///     and after active state-machine or callback calls have returned.
+        ///     registered continuation inline. After consumption and after active state-machine or callback calls have
+        ///     returned, the runner is returned to the thread-local pool of the thread that performs the final release.
         /// </summary>
         /// <param name="exception">The non-null exception thrown by the async method.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="exception" /> is null.</exception>

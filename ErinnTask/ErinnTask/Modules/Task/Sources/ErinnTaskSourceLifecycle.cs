@@ -123,6 +123,10 @@ namespace Erinn
         ///     Thrown if the version is stale, the operation is consumed or released, or a
         ///     continuation is already registered.
         /// </exception>
+        /// <exception cref="Exception">
+        ///     Propagates an exception thrown by <paramref name="continuation" /> when completion was already
+        ///     published and this call invokes it inline.
+        /// </exception>
         /// <remarks>The continuation is invoked immediately on the calling thread if completion was already published.</remarks>
         public void OnCompleted(ulong version, Action continuation)
         {
@@ -294,7 +298,7 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Rejects a consumed handle or a handle from an earlier pooled use.
+        ///     Rejects a consumed operation or a version from an earlier use of the pooled source.
         /// </summary>
         /// <param name="version">The version that identifies the operation.</param>
         /// <returns>The current atomic state.</returns>

@@ -16,7 +16,7 @@ namespace Erinn
     internal readonly struct ErinnTimerEntry<TSlot>
     {
         /// <summary>
-        ///     The unique id of the timer entry.
+        ///     The timer uid of the entry.
         /// </summary>
         private readonly ulong _uid;
 
@@ -29,7 +29,7 @@ namespace Erinn
         /// <summary>
         ///     The invoker that knows the payload type the callback consumes.
         /// </summary>
-        private readonly ErinnTimerEntryInvoker<TSlot>? _invoker;
+        private readonly Action<Delegate, ErinnTimerTag, TSlot?>? _invoker;
 
         /// <summary>
         ///     The payload, stored in its routed slot.
@@ -39,11 +39,11 @@ namespace Erinn
         /// <summary>
         ///     Initializes a new instance of the <see cref="ErinnTimerEntry{TSlot}" /> structure.
         /// </summary>
-        /// <param name="uid">The unique id of the timer entry.</param>
+        /// <param name="uid">The timer uid of the entry.</param>
         /// <param name="callback">The type-erased user callback.</param>
         /// <param name="invoker">The invoker that knows the payload type the callback consumes.</param>
         /// <param name="slot">The payload, stored in its routed slot.</param>
-        private ErinnTimerEntry(ulong uid, Delegate callback, ErinnTimerEntryInvoker<TSlot> invoker, TSlot? slot)
+        private ErinnTimerEntry(ulong uid, Delegate callback, Action<Delegate, ErinnTimerTag, TSlot?> invoker, TSlot? slot)
         {
             _uid = uid;
             _callback = callback;
@@ -52,14 +52,14 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Gets the unique id of the timer entry.
+        ///     Gets the timer uid of the entry.
         /// </summary>
         public ulong Uid => _uid;
 
         /// <summary>
         ///     Creates an entry that stores the routed payload without boxing it.
         /// </summary>
-        /// <param name="uid">The non-zero unique id of the timer entry.</param>
+        /// <param name="uid">The non-zero timer uid of the entry.</param>
         /// <param name="callback">The non-null user callback to retain in the entry.</param>
         /// <param name="data">
         ///     The payload to route through <typeparamref name="TSlot" />; its representation must be compatible
@@ -91,7 +91,7 @@ namespace Erinn
             /// <summary>
             ///     The cached invoker that restores the payload's type before calling the callback.
             /// </summary>
-            public static readonly ErinnTimerEntryInvoker<TSlot> Invoker;
+            public static readonly Action<Delegate, ErinnTimerTag, TSlot?> Invoker;
 
             /// <summary>
             ///     Initializes the invoker once for this closed payload type and storage slot type.

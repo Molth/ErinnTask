@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 namespace Erinn
 {
     /// <summary>
-    ///     Stores typed callback entries, reusable slot ids, and timer-queue positions for one routed payload slot type.
+    ///     Stores typed callback entries, reusable slot indices, and timer-queue positions for one routed payload slot type.
     /// </summary>
     /// <typeparam name="TSlot">The type of the storage slot the payload is routed through.</typeparam>
     /// <remarks>
@@ -28,27 +28,27 @@ namespace Erinn
     internal sealed class ErinnTimerBucket<TSlot> : IErinnTimerBucket
     {
         /// <summary>
-        ///     The typed callback and payload entries indexed by reusable slot id.
+        ///     The typed callback and payload entries indexed by reusable slot index.
         /// </summary>
         private ErinnTimerEntry<TSlot>[] _entries;
 
         /// <summary>
-        ///     The heap position of each allocated entry, indexed by bucket slot id.
+        ///     The heap position of each allocated entry, indexed by bucket slot index.
         /// </summary>
         private int[] _queueIndices;
 
         /// <summary>
-        ///     The array-backed stack of released slot ids.
+        ///     The array-backed stack of released slot indices.
         /// </summary>
-        private int[] _freeIds;
+        private int[] _freeSlotIndices;
 
         /// <summary>
-        ///     The number of allocated slot ids, including released ids available for reuse.
+        ///     The number of allocated slot indices, including released slot indices available for reuse.
         /// </summary>
         private int _count;
 
         /// <summary>
-        ///     The number of released slot ids currently stored in <see cref="_freeIds" />.
+        ///     The number of released slot indices currently stored in <see cref="_freeSlotIndices" />.
         /// </summary>
         private int _freeCount;
 
@@ -67,16 +67,28 @@ namespace Erinn
         {
             _entries = new ErinnTimerEntry<TSlot>[capacity];
             _queueIndices = new int[capacity];
-            _freeIds = new int[capacity];
+            _freeSlotIndices = new int[capacity];
             _count = 0;
             _freeCount = 0;
         }
 
         /// <summary>
-        ///     Gets the queue position for a live entry whose slot and unique id match. Returns false for a zero id, an
-        ///     out-of-range slot, or a slot containing another timer id.
+        ///     Drops callback and slot metadata so retained cancellation handles do not keep the backing arrays alive after
+        ///     disposal. The bucket cannot be used again after this call.
         /// </summary>
-        /// <param name="uid">The non-zero unique id expected for the entry.</param>
+        [ThreadAffine]
+        public void Dispose()
+        {
+            _entries = null!;
+            _queueIndices = null!;
+            _freeSlotIndices = null!;
+        }
+
+        /// <summary>
+        ///     Gets the queue position for a live entry whose slot and timer uid match. Returns false for a zero uid, an
+        ///     out-of-range slot, or a slot containing another timer uid.
+        /// </summary>
+        /// <param name="uid">The non-zero timer uid expected for the entry.</param>
         /// <param name="slotIndex">
         ///     The slot index to validate against <paramref name="uid" />; it must identify an allocated slot to
         ///     match.
@@ -86,7 +98,7 @@ namespace Erinn
         ///     otherwise, contains zero.
         /// </param>
         /// <returns>
-        ///     <see langword="true" /> if the entry is live and its id matches <paramref name="uid" />; otherwise
+        ///     <see langword="true" /> if the entry is live and its uid matches <paramref name="uid" />; otherwise
         ///     <see langword="false" />.
         /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -118,7 +130,7 @@ namespace Erinn
         /// <summary>
         ///     Attempts to complete a matching live entry, releasing its slot before invoking the callback.
         /// </summary>
-        /// <param name="uid">The non-zero unique id expected for the entry currently occupying <paramref name="slotIndex" />.</param>
+        /// <param name="uid">The non-zero timer uid expected for the entry currently occupying <paramref name="slotIndex" />.</param>
         /// <param name="slotIndex">
         ///     The slot index to validate against <paramref name="uid" />; it must identify an allocated slot to
         ///     match.
@@ -126,7 +138,7 @@ namespace Erinn
         /// <param name="tag">The defined completion reason to pass to the callback.</param>
         /// <param name="exception">When the matching callback throws, contains that exception; otherwise contains null.</param>
         /// <returns>
-        ///     <see langword="true" /> if the slot and id matched and the callback was invoked, even if it threw;
+        ///     <see langword="true" /> if the slot and uid matched and the callback was invoked, even if it threw;
         ///     otherwise <see langword="false" />.
         /// </returns>
         [ThreadAffine]
@@ -142,7 +154,7 @@ namespace Erinn
                 return false;
 
             _entries[slotIndex] = default;
-            _freeIds[_freeCount++] = slotIndex;
+            _freeSlotIndices[_freeCount++] = slotIndex;
 
             try
             {
@@ -157,29 +169,17 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Drops callback and slot metadata so retained cancellation handles do not keep the backing arrays alive after
-        ///     disposal. The bucket cannot be used again after this call.
-        /// </summary>
-        [ThreadAffine]
-        public void ReleaseStorage()
-        {
-            _entries = null!;
-            _queueIndices = null!;
-            _freeIds = null!;
-        }
-
-        /// <summary>
         ///     Allocates or reuses a slot and stores the routed payload and its typed invoker, growing the backing arrays
         ///     when no reusable slot is available and the allocated range is full.
         /// </summary>
-        /// <param name="uid">The non-zero unique id assigned by the owning scheduler. It must not be in use by another live entry.</param>
+        /// <param name="uid">The non-zero timer uid assigned by the owning scheduler. It must not be in use by another live entry.</param>
         /// <param name="callback">The non-null user callback to retain until the timer completes; null is not checked here.</param>
         /// <param name="data">
         ///     The payload whose representation is compatible with <typeparamref name="TSlot" />; compatibility is
         ///     a caller precondition and is not checked here.
         /// </param>
         /// <typeparam name="T">The callback parameter type.</typeparam>
-        /// <returns>The allocated slot index, which is non-negative and remains associated with this entry until it is triggered.</returns>
+        /// <returns>The allocated slot index, which is non-negative and remains associated with this entry until it is completed.</returns>
         [ThreadAffine]
         public int Allocate<T>(ulong uid, Action<ErinnTimerTag, T?> callback, T? data)
         {
@@ -188,7 +188,7 @@ namespace Erinn
             int slotIndex;
             if (freeCount != 0)
             {
-                slotIndex = _freeIds[freeCount - 1];
+                slotIndex = _freeSlotIndices[freeCount - 1];
                 _freeCount = freeCount - 1;
             }
             else
@@ -206,22 +206,23 @@ namespace Erinn
 
         /// <summary>
         ///     Grows callback storage and slot metadata while preserving active entries and heap positions. This is called
-        ///     only when no free slot is available, so the new free-id array starts empty.
+        ///     only when no free slot is available, so the new free-slot-index array starts empty.
         /// </summary>
         /// <param name="minimumCapacity">The capacity required to allocate the next slot.</param>
         [ThreadAffine]
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private void Grow(int minimumCapacity)
         {
             var oldCount = _count;
             var capacity = CollectionHelpers.GrowCapacity(_entries.Length, minimumCapacity);
             var entries = new ErinnTimerEntry<TSlot>[capacity];
             var queueIndices = new int[capacity];
-            var freeIds = new int[capacity];
+            var freeSlotIndices = new int[capacity];
             Array.Copy(_entries, entries, oldCount);
             Array.Copy(_queueIndices, queueIndices, oldCount);
             _entries = entries;
             _queueIndices = queueIndices;
-            _freeIds = freeIds;
+            _freeSlotIndices = freeSlotIndices;
         }
     }
 }

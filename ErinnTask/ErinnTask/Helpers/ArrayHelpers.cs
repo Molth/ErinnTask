@@ -5,14 +5,14 @@ using System;
 namespace Erinn
 {
     /// <summary>
-    ///     Provides the maximum single-dimensional, zero-based array length used by collection growth logic.
+    ///     Provides the maximum single-dimensional, zero-based (SZ) array length used by collection growth logic.
     /// </summary>
     internal static class ArrayHelpers
     {
         /// <summary>
-        ///     Gets the maximum number of elements that may be contained in an array.
+        ///     Gets the maximum number of elements that may be contained in a single-dimensional, zero-based (SZ) array.
         /// </summary>
-        /// <returns>The maximum count of elements allowed in any array.</returns>
+        /// <returns>The maximum count of elements allowed in a single-dimensional, zero-based (SZ) array.</returns>
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>

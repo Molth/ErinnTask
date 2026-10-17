@@ -127,10 +127,10 @@ namespace Erinn
             public T GetResult() => _task._source == null ? _task._result : _task._source.GetResult(_task._version);
 
             /// <summary>
-            ///     Registers the continuation to run inline when the operation completes. An inline result invokes it
-            ///     immediately; a source-backed operation that has already completed invokes it immediately on the
-            ///     calling thread. This method does not capture the execution context, and a source-backed operation
-            ///     accepts only one continuation.
+            ///     Registers the continuation to run inline when the operation completes. An inline result or an
+            ///     already completed source-backed operation invokes it on this thread; otherwise, the completing
+            ///     thread invokes it inline. This method does not capture the execution context, and a source-backed
+            ///     operation accepts only one continuation.
             /// </summary>
             /// <param name="continuation">The continuation to invoke.</param>
             /// <exception cref="ArgumentNullException">Thrown if <paramref name="continuation" /> is null.</exception>
@@ -138,18 +138,24 @@ namespace Erinn
             ///     Thrown if the source version is stale or consumed, or a continuation is
             ///     already registered.
             /// </exception>
+            /// <exception cref="Exception">
+            ///     Propagates an exception thrown by <paramref name="continuation" /> if this call invokes it inline.
+            /// </exception>
             public void OnCompleted(Action continuation) => UnsafeOnCompleted(continuation);
 
             /// <summary>
-            ///     Registers the continuation without capturing the execution context. An inline result invokes it
-            ///     immediately; a pending source-backed operation stores it until completion, while an already completed
-            ///     source invokes it immediately. A source-backed operation accepts only one continuation registration.
+            ///     Registers the continuation without capturing the execution context. An inline result or an already
+            ///     completed source invokes it on this thread; a pending source-backed operation stores it until the
+            ///     completing thread invokes it inline. A source-backed operation accepts only one continuation.
             /// </summary>
             /// <param name="continuation">The continuation to invoke.</param>
             /// <exception cref="ArgumentNullException">Thrown if <paramref name="continuation" /> is null.</exception>
             /// <exception cref="InvalidOperationException">
             ///     Thrown if the source version is stale or consumed, or a continuation is
             ///     already registered.
+            /// </exception>
+            /// <exception cref="Exception">
+            ///     Propagates an exception thrown by <paramref name="continuation" /> if this call invokes it inline.
             /// </exception>
             public void UnsafeOnCompleted(Action continuation)
             {

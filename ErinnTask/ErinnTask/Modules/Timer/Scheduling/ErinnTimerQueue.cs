@@ -12,10 +12,10 @@ namespace Erinn
     ///     This queue is owned by one scheduler and is unsynchronized. All access must occur on that scheduler's thread;
     ///     concurrent calls are unsupported.
     /// </remarks>
-    internal sealed class ErinnTimerQueue
+    internal sealed class ErinnTimerQueue : IDisposable
     {
         /// <summary>
-        ///     The nodes stored in scheduling order.
+        ///     The timer nodes arranged as a four-way min-heap.
         /// </summary>
         private ErinnTimerNode[] _nodes;
 
@@ -39,10 +39,11 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Gets the number of queued timers.
+        ///     Releases the node array once every timer has been drained during disposal.
+        ///     The queue cannot be used again after this call.
         /// </summary>
         [ThreadAffine]
-        public int Count => _count;
+        public void Dispose() => _nodes = null!;
 
         /// <summary>
         ///     Adds a timer node in scheduling order.
@@ -111,7 +112,7 @@ namespace Erinn
         ///     occupied index; this method does not validate the index.
         /// </summary>
         /// <param name="index">
-        ///     An occupied heap index in the range [0, <see cref="Count" />). Callers obtain it from the owning
+        ///     An occupied heap index in the range [0, <see cref="_count" />). Callers obtain it from the owning
         ///     bucket's queue-index metadata; this method assumes the index is valid.
         /// </param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -130,13 +131,6 @@ namespace Erinn
 
             _nodes[lastIndex] = default;
         }
-
-        /// <summary>
-        ///     Releases the node array once every timer has been drained during disposal. The queue cannot be used again
-        ///     after this call.
-        /// </summary>
-        [ThreadAffine]
-        public void ReleaseStorage() => _nodes = null!;
 
         /// <summary>
         ///     Moves a newly added node upward until its parents precede it.

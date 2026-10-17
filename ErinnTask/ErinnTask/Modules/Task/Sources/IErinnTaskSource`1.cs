@@ -53,6 +53,10 @@ namespace Erinn
         ///     Thrown if the version is stale, the operation was consumed, or a
         ///     continuation was already registered.
         /// </exception>
+        /// <exception cref="Exception">
+        ///     Propagates an exception thrown by <paramref name="continuation" /> when completion was already
+        ///     published and this call invokes it inline.
+        /// </exception>
         void OnCompleted(ulong version, Action continuation);
 
         /// <summary>
@@ -69,6 +73,7 @@ namespace Erinn
         /// </summary>
         /// <param name="result">The result of the operation.</param>
         /// <exception cref="InvalidOperationException">Thrown if the operation is no longer pending.</exception>
+        /// <exception cref="Exception">Propagates an exception thrown by a registered continuation.</exception>
         void SetResult(T result);
 
         /// <summary>
@@ -77,6 +82,7 @@ namespace Erinn
         /// <param name="exception">The non-null exception thrown by the operation.</param>
         /// <exception cref="InvalidOperationException">Thrown if the operation is no longer pending.</exception>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="exception" /> is null.</exception>
+        /// <exception cref="Exception">Propagates an exception thrown by a registered continuation.</exception>
         void SetException(Exception exception);
     }
 }

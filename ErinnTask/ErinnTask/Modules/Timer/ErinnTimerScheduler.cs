@@ -12,7 +12,7 @@ namespace Erinn
     /// <remarks>
     ///     <list type="bullet">
     ///         <item>
-    ///             <description>The timer queue orders timestamps and unique ids.</description>
+    ///             <description>The timer queue orders timestamps and timer uids.</description>
     ///         </item>
     ///         <item>
     ///             <description>
@@ -42,7 +42,10 @@ namespace Erinn
     ///             </description>
     ///         </item>
     ///         <item>
-    ///             <description>Callback exceptions are reported through <see cref="OnException" />.</description>
+    ///             <description>
+    ///                 Callback exceptions are reported through <see cref="OnException" /> when a handler is configured;
+    ///                 otherwise they propagate from the triggering operation or are aggregated during disposal.
+    ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
@@ -56,18 +59,18 @@ namespace Erinn
     {
         /// <summary>
         ///     Indicates whether disposal has started. Set before pending callbacks are invoked so reentrant scheduling
-        ///     and cancellation cannot add work during disposal.
+        ///     is rejected and cancellation returns false during disposal.
         /// </summary>
         private bool _disposed;
 
         /// <summary>
-        ///     The last timer id assigned.
-        ///     Ids are never reused; scheduling stops when this reaches <see cref="ulong.MaxValue" />.
+        ///     The last timer uid assigned.
+        ///     Timer uids are never reused; scheduling stops when the counter reaches <see cref="ulong.MaxValue" />.
         /// </summary>
         private ulong _uid;
 
         /// <summary>
-        ///     The pending timers, ordered by absolute timestamp and then insertion id for equal timestamps.
+        ///     The pending timers, ordered by absolute timestamp and then uid for equal timestamps.
         /// </summary>
         private readonly ErinnTimerQueue _timers;
 
@@ -92,9 +95,13 @@ namespace Erinn
         private readonly Dictionary<Type, IErinnTimerBucket> _buckets;
 
         /// <summary>
-        ///     Initializes a new instance of the <see cref="ErinnTimerScheduler" /> class.
+        ///     Initializes a new independent scheduler with empty timer and callback storage.
         /// </summary>
-        private ErinnTimerScheduler()
+        /// <remarks>
+        ///     The scheduler does not create a clock or choose a timestamp unit. Its raw timestamp values can represent
+        ///     any caller-defined time domain, provided scheduling and update calls use the same origin and unit.
+        /// </remarks>
+        public ErinnTimerScheduler()
         {
             _timers = new ErinnTimerQueue(16);
             _referenceBucket = new ErinnTimerBucket<object>(4);
@@ -204,25 +211,19 @@ namespace Erinn
                 }
             }
 
-            _timers.ReleaseStorage();
-            _referenceBucket.ReleaseStorage();
-            _smallBucket.ReleaseStorage();
-            _wideBucket.ReleaseStorage();
+            _timers.Dispose();
+            _referenceBucket.Dispose();
+            _smallBucket.Dispose();
+            _wideBucket.Dispose();
 
             foreach (var pair in _buckets)
-                pair.Value.ReleaseStorage();
+                pair.Value.Dispose();
 
             OnException = null;
 
             if (aggregated != null)
                 ThrowHelpers.ThrowAggregate(aggregated);
         }
-
-        /// <summary>
-        ///     Creates a new, independent <see cref="ErinnTimerScheduler" /> with empty timer and callback storage.
-        /// </summary>
-        /// <returns>A new, empty scheduler.</returns>
-        public static ErinnTimerScheduler Create() => new();
 
         /// <summary>
         ///     Schedules <paramref name="callback" /> to run when the timer is updated at or past
@@ -259,7 +260,7 @@ namespace Erinn
         /// <returns>A handle that can be used to cancel the timer before it fires.</returns>
         /// <exception cref="ObjectDisposedException">Thrown if the scheduler has already been disposed.</exception>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="callback" /> is <see langword="null" />.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if all non-zero timer ids have already been assigned.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if all non-zero timer uids have already been assigned.</exception>
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>
@@ -267,8 +268,9 @@ namespace Erinn
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 A callback exception does not restore the removed timer; it is reported through
-        ///                 <see cref="OnException" />.
+        ///                 A callback exception does not restore the removed timer. It is reported through
+        ///                 <see cref="OnException" /> when a handler is configured; otherwise it propagates from the
+        ///                 triggering operation or is aggregated during disposal.
         ///             </description>
         ///         </item>
         ///         <item>
@@ -298,25 +300,25 @@ namespace Erinn
         ///     </list>
         /// </remarks>
         [ThreadAffine]
-        public ErinnTimerHandle Create<T>(ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
+        public ErinnTimerHandle Schedule<T>(ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
         {
             ThrowHelpers.ThrowIfDisposed(_disposed, nameof(ErinnTimerScheduler));
             ThrowHelpers.ThrowIfNull(callback, ExceptionArgument.callback);
-            ThrowHelpers.ThrowIfTimerIdExhausted(_uid);
+            ThrowHelpers.ThrowIfTimerUidExhausted(_uid);
 
             if (!typeof(T).IsValueType)
-                return Schedule(_referenceBucket, timestamp, callback, data);
+                return ScheduleCore(_referenceBucket, timestamp, callback, data);
 
             if (!RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 if (Unsafe.SizeOf<T>() <= 4)
-                    return Schedule(_smallBucket, timestamp, callback, data);
+                    return ScheduleCore(_smallBucket, timestamp, callback, data);
 
                 if (Unsafe.SizeOf<T>() <= 8)
-                    return Schedule(_wideBucket, timestamp, callback, data);
+                    return ScheduleCore(_wideBucket, timestamp, callback, data);
             }
 
-            return Schedule(GetBucket<T>(), timestamp, callback, data);
+            return ScheduleCore(GetBucket<T>(), timestamp, callback, data);
         }
 
         /// <summary>
@@ -330,7 +332,7 @@ namespace Erinn
         /// <typeparam name="T">The callback parameter type.</typeparam>
         /// <returns>The handle that cancels the queued timer.</returns>
         [ThreadAffine]
-        private ErinnTimerHandle Schedule<TSlot, T>(ErinnTimerBucket<TSlot> bucket, ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
+        private ErinnTimerHandle ScheduleCore<TSlot, T>(ErinnTimerBucket<TSlot> bucket, ulong timestamp, Action<ErinnTimerTag, T?> callback, T? data)
         {
             var uid = ++_uid;
             var slotIndex = bucket.Allocate(uid, callback, data);
@@ -406,7 +408,7 @@ namespace Erinn
         /// </summary>
         /// <param name="bucket">The bucket that owns the callback; it must belong to this scheduler.</param>
         /// <param name="slotIndex">The allocated slot index inside <paramref name="bucket" />.</param>
-        /// <param name="uid">The non-zero unique id of the timer entry.</param>
+        /// <param name="uid">The non-zero timer uid of the entry.</param>
         /// <returns>
         ///     <see langword="true" /> if the timer was pending and its callback was invoked with
         ///     <see cref="ErinnTimerTag.Canceled" />; otherwise <see langword="false" /> if disposal has started or the

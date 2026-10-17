@@ -27,7 +27,7 @@ namespace Erinn
         public readonly ulong Timestamp;
 
         /// <summary>
-        ///     The unique id that identifies the entry and breaks timestamp ties.
+        ///     The timer uid that identifies the entry and breaks timestamp ties.
         /// </summary>
         public readonly ulong Uid;
 
@@ -37,7 +37,7 @@ namespace Erinn
         /// <param name="bucket">The non-null bucket that owns the callback.</param>
         /// <param name="slotIndex">The non-negative allocated slot index inside <paramref name="bucket" />.</param>
         /// <param name="timestamp">The absolute timestamp at which the timer fires, in the scheduler's time domain.</param>
-        /// <param name="uid">The non-zero unique id of the timer entry.</param>
+        /// <param name="uid">The non-zero timer uid of the entry.</param>
         public ErinnTimerNode(IErinnTimerBucket bucket, int slotIndex, ulong timestamp, ulong uid)
         {
             Bucket = bucket;
@@ -47,11 +47,11 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Determines scheduling order by timestamp, then by unique id for equal timestamps.
+        ///     Determines scheduling order by timestamp, then by uid for equal timestamps.
         /// </summary>
         /// <param name="other">The node to compare with.</param>
         /// <returns>
-        ///     <see langword="true" /> if this node has an earlier timestamp or the same timestamp and a lower unique id;
+        ///     <see langword="true" /> if this node has an earlier timestamp or the same timestamp and a lower uid;
         ///     otherwise <see langword="false" />.
         /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
