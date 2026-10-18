@@ -7,8 +7,9 @@ using System.Runtime.InteropServices;
 namespace Erinn
 {
     /// <summary>
-    ///     Represents one timer slot. It keeps the callback type-erased with an invoker specialized for the original
-    ///     payload type, while storing the payload in a slot of type <typeparamref name="TSlot" />. This lets a bucket
+    ///     Represents one timer slot. It keeps the callback type-erased with an invoker
+    ///     specialized for the original payload type, while storing the payload in a slot of type
+    ///     <typeparamref name="TSlot" />. This lets a bucket
     ///     share storage across payload types routed through the same slot type without boxing the payload.
     /// </summary>
     /// <typeparam name="TSlot">The type of the storage slot the payload is routed through.</typeparam>
@@ -62,8 +63,8 @@ namespace Erinn
         /// <param name="uid">The non-zero timer uid of the entry.</param>
         /// <param name="callback">The non-null user callback to retain in the entry.</param>
         /// <param name="data">
-        ///     The payload to route through <typeparamref name="TSlot" />; its representation must be compatible
-        ///     with that slot type.
+        ///     The payload to route through <typeparamref name="TSlot" />;
+        ///     its representation must be compatible with that slot type.
         /// </param>
         /// <typeparam name="T">The callback parameter type.</typeparam>
         /// <returns>The entry holding the payload and its typed invoker.</returns>
@@ -75,8 +76,8 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Invokes the original callback with the payload held by this entry. The callback's exception propagates to
-        ///     the caller.
+        ///     Invokes the original callback with the payload held by this entry.
+        ///     The callback's exception propagates to the caller.
         /// </summary>
         /// <param name="tag">The reason the callback is being invoked.</param>
         [ThreadAffine]

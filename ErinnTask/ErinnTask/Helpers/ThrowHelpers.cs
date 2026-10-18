@@ -1,11 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
-#if NET7_0_OR_GREATER
-using System.Numerics;
-#endif
 
 // ReSharper disable ALL
 
@@ -18,58 +14,34 @@ namespace Erinn
     internal static class ThrowHelpers
     {
         /// <summary>
-        ///     Throws an <see cref="ArgumentOutOfRangeException" /> if <paramref name="value" /> compares as negative
-        ///     under the target framework's signed-number or comparison contract.
+        ///     Throws an <see cref="ArgumentNullException" /> if <paramref name="argument" /> is null.
         /// </summary>
-        /// <param name="value">The signed numeric value to validate; zero and positive values are accepted.</param>
+        /// <param name="argument">The reference type argument to validate as non-null.</param>
         /// <param name="paramName">
-        ///     The enum value mapped to the exception's <c>ParamName</c>; unrecognized values produce a null
-        ///     parameter name.
+        ///     The enum value selecting the exception's <c>ParamName</c>.
+        ///     Unrecognized values produce a null parameter name.
         /// </param>
-        /// <typeparam name="T">An unmanaged type that satisfies the target framework's signed-number or comparison constraint.</typeparam>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="value" /> is negative.</exception>
-        /// <remarks>
-        ///     <list type="bullet">
-        ///         <item>
-        ///             <description>
-        ///                 On .NET 7 and later, the generic constraint is <c>ISignedNumber</c>; on older targets, it is
-        ///                 <see cref="IComparable{T}" />.
-        ///             </description>
-        ///         </item>
-        ///         <item>
-        ///             <description>On older targets, the value is compared with its default zero value.</description>
-        ///         </item>
-        ///         <item>
-        ///             <description>Only value types that satisfy the target-specific constraint are supported.</description>
-        ///         </item>
-        ///     </list>
-        /// </remarks>
+        /// <typeparam name="T">A reference type; value types are not accepted.</typeparam>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown when <paramref name="argument" /> is null.
+        /// </exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void ThrowIfNegative<T>(T value, ExceptionArgument paramName) where T : unmanaged,
-#if NET7_0_OR_GREATER
-            ISignedNumber<T>
-#else
-            IComparable<T>
-#endif
+        public static void ThrowIfNull<T>(T? argument, ExceptionArgument paramName) where T : class
         {
-#if NET7_0_OR_GREATER
-            if (T.IsNegative(value))
-#else
-            if (value.CompareTo(default) < 0)
-#endif
-                throw new ArgumentOutOfRangeException(GetArgumentName(paramName), value, SR.ArgumentOutOfRange_MustBeNonNegative);
+            if (argument == null)
+                throw new ArgumentNullException(GetArgumentName(paramName), SR.ArgumentNull_MustBeNotNull);
         }
 
         /// <summary>
-        ///     Throws an <see cref="ArgumentOutOfRangeException" /> if a millisecond timestamp cannot be
-        ///     represented as an unsigned microsecond timestamp.
+        ///     Throws an <see cref="ArgumentOutOfRangeException" /> if a millisecond
+        ///     timestamp cannot be represented as an unsigned microsecond timestamp.
         /// </summary>
         /// <param name="milliseconds">
         ///     The unsigned absolute timestamp in milliseconds to validate.
         /// </param>
         /// <param name="paramName">
-        ///     The enum value mapped to the exception's <c>ParamName</c>. An unrecognized value produces a null
-        ///     parameter name.
+        ///     The enum value selecting the exception's <c>ParamName</c>.
+        ///     An unrecognized value produces a null parameter name.
         /// </param>
         /// <exception cref="ArgumentOutOfRangeException">
         ///     Thrown when <paramref name="milliseconds" /> is greater than
@@ -78,13 +50,16 @@ namespace Erinn
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>
-        ///             <description>Values from zero through <c>18446744073709551UL</c>, inclusive, are accepted.</description>
+        ///             <description>
+        ///                 Values from zero through <c>18446744073709551UL</c>, inclusive, are
+        ///                 accepted.
+        ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 Multiplying the upper bound by 1,000 produces
-        ///                 <c>18446744073709551000UL</c>, which fits in <see cref="ulong" />; the next millisecond value
-        ///                 would exceed <see cref="ulong.MaxValue" /> after conversion to microseconds.
+        ///                 The upper bound times 1,000 is <c>18446744073709551000UL</c> and fits in
+        ///                 <see cref="ulong" />. The next millisecond value would exceed
+        ///                 <see cref="ulong.MaxValue" /> after conversion to microseconds.
         ///             </description>
         ///         </item>
         ///     </list>
@@ -97,65 +72,54 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Throws an <see cref="ArgumentOutOfRangeException" /> if a seconds timestamp cannot be represented
-        ///     as an unsigned microsecond timestamp.
+        ///     Throws when a seconds timestamp cannot be converted to an unsigned microsecond timestamp.
         /// </summary>
         /// <param name="seconds">
         ///     The absolute timestamp in seconds to validate.
         /// </param>
         /// <param name="paramName">
-        ///     The enum value mapped to the exception's <c>ParamName</c>. An unrecognized value produces a null
-        ///     parameter name.
+        ///     The enum value selecting the exception's <c>ParamName</c>.
+        ///     An unrecognized value produces a null parameter name.
         /// </param>
         /// <exception cref="ArgumentOutOfRangeException">
-        ///     Thrown when <paramref name="seconds" /> is negative or non-finite, or when its converted microsecond
-        ///     value is greater than or equal to 2^64.
+        ///     Thrown when <paramref name="seconds" /> is negative or non-finite, or when
+        ///     conversion to a microsecond timestamp would exceed <see cref="ulong.MaxValue" />.
         /// </exception>
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>
-        ///             <description>The value must be finite and non-negative.</description>
-        ///         </item>
-        ///         <item>
         ///             <description>
-        ///                 Values below <c>18446744073709.55d</c> seconds are accepted. This exclusive upper bound is the first
-        ///                 representable <see cref="double" /> seconds value whose product by 1,000,000 as a <see cref="double" />
-        ///                 is at least 2^64.
+        ///                 The value must be finite and numerically non-negative.
+        ///                 Negative zero is accepted as zero.
         ///             </description>
         ///         </item>
         ///         <item>
-        ///             <description>Conversion to microseconds truncates any fractional microsecond.</description>
+        ///             <description>
+        ///                 Values below <c>18446744073709.55d</c> seconds are accepted. At that boundary,
+        ///                 multiplying by 1,000,000 as a <see cref="double" /> reaches 2^64.
+        ///             </description>
+        ///         </item>
+        ///         <item>
+        ///             <description>
+        ///                 Conversion to microseconds truncates any fractional microsecond.
+        ///             </description>
         ///         </item>
         ///     </list>
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ThrowIfTimerSecondsOutOfRange(double seconds, ExceptionArgument paramName)
         {
-            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || double.IsNegative(seconds) || seconds >= 18446744073709.55d)
+            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0d || seconds >= 18446744073709.55d)
                 throw new ArgumentOutOfRangeException(GetArgumentName(paramName), seconds, SR.ArgumentOutOfRange_TimerTimestampOutOfRange);
         }
 
         /// <summary>
-        ///     Throws an <see cref="InvalidOperationException" /> if the scheduler has used every non-zero timer uid.
-        /// </summary>
-        /// <param name="lastUid">
-        ///     The most recently assigned timer uid;
-        ///     zero is the initial value and all non-maximum values permit another uid.
-        /// </param>
-        /// <exception cref="InvalidOperationException">Thrown when <paramref name="lastUid" /> is <see cref="ulong.MaxValue" />.</exception>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void ThrowIfTimerUidExhausted(ulong lastUid)
-        {
-            if (lastUid == ulong.MaxValue)
-                ThrowInvalidOperation(SR.InvalidOperation_TimerUidExhausted);
-        }
-
-        /// <summary>
-        ///     Throws an <see cref="InvalidOperationException" /> if a pooled task source has used every non-zero version.
+        ///     Throws an <see cref="InvalidOperationException" /> if a pooled
+        ///     task source has used every non-zero version.
         /// </summary>
         /// <param name="lastVersion">
-        ///     The most recently assigned source version; zero is the initial value and all non-maximum
-        ///     values permit another version.
+        ///     The most recently assigned source version. Zero is the initial value;
+        ///     any value below <see cref="ulong.MaxValue" /> permits another version.
         /// </param>
         /// <exception cref="InvalidOperationException">
         ///     Thrown when <paramref name="lastVersion" /> is
@@ -165,94 +129,76 @@ namespace Erinn
         public static void ThrowIfTaskVersionExhausted(ulong lastVersion)
         {
             if (lastVersion == ulong.MaxValue)
-                ThrowInvalidOperation(SR.InvalidOperation_TaskVersionExhausted);
+                ThrowInvalidOperationException(ExceptionResource.InvalidOperation_TaskVersionExhausted);
         }
 
         /// <summary>
-        ///     Throws an <see cref="ArgumentNullException" /> if <paramref name="argument" /> is null.
+        ///     Throws an <see cref="InvalidOperationException" /> with the message identified by
+        ///     <paramref name="resource" />.
         /// </summary>
-        /// <param name="argument">The reference type argument to validate as non-null.</param>
-        /// <param name="paramName">
-        ///     The enum value mapped to the exception's <c>ParamName</c>; unrecognized values produce a null
-        ///     parameter name.
-        /// </param>
-        /// <typeparam name="T">A reference type; value types are not accepted.</typeparam>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="argument" /> is null.</exception>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void ThrowIfNull<T>(T? argument, ExceptionArgument paramName) where T : class
-        {
-            if (argument == null)
-                throw new ArgumentNullException(GetArgumentName(paramName), SR.ArgumentNull_MustBeNotNull);
-        }
+        /// <param name="resource">The <see cref="ExceptionResource" /> value identifying the message.</param>
+        /// <exception cref="InvalidOperationException">
+        ///     Always thrown. An unrecognized value passes a null message to the constructor,
+        ///     so <see cref="Exception.Message" /> uses the framework's default message.
+        /// </exception>
+        [DoesNotReturn]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void ThrowInvalidOperationException(ExceptionResource resource) => throw new InvalidOperationException(GetResourceString(resource));
 
         /// <summary>
-        ///     Throws an <see cref="ObjectDisposedException" /> if <paramref name="disposed" /> is
-        ///     <see langword="true" />.
-        /// </summary>
-        /// <param name="disposed">A value that indicates whether the object has already been disposed.</param>
-        /// <param name="objectName">The disposed object's name; may be <see langword="null" />.</param>
-        /// <exception cref="ObjectDisposedException">Thrown when <paramref name="disposed" /> is <see langword="true" />.</exception>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void ThrowIfDisposed(bool disposed, string? objectName)
-        {
-            if (disposed)
-                throw new ObjectDisposedException(objectName);
-        }
-
-        /// <summary>
-        ///     Rethrows the specified exception through <see cref="ExceptionDispatchInfo" /> to preserve its existing
-        ///     stack trace. The call does not return.
+        ///     Rethrows the specified exception through <see cref="ExceptionDispatchInfo" />,
+        ///     preserving its existing stack trace. The call does not return.
         /// </summary>
         /// <param name="exception">The non-null exception instance to rethrow.</param>
         /// <exception cref="Exception">Rethrows the supplied exception instance.</exception>
         [DoesNotReturn]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void Throw(Exception exception) => ExceptionDispatchInfo.Capture(exception).Throw();
+        public static void RethrowException(Exception exception) => ExceptionDispatchInfo.Capture(exception).Throw();
 
         /// <summary>
-        ///     Throws an <see cref="InvalidOperationException" /> with the specified resource message.
+        ///     Rethrows an already captured exception through its
+        ///     stored dispatch information. The call does not return.
         /// </summary>
-        /// <param name="message">The message used to construct the exception; null is permitted by the framework constructor.</param>
-        /// <exception cref="InvalidOperationException">Always thrown with the supplied message.</exception>
-        [DoesNotReturn]
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void ThrowInvalidOperation(string message) => throw new InvalidOperationException(message);
-
-        /// <summary>
-        ///     Rethrows an already captured exception through its stored dispatch information. The call does not return.
-        /// </summary>
-        /// <param name="exception">The non-null captured exception dispatch information.</param>
+        /// <param name="dispatchInfo">The non-null captured exception dispatch information.</param>
         /// <exception cref="Exception">Rethrows the exception stored in the dispatch information.</exception>
         [DoesNotReturn]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void Throw(ExceptionDispatchInfo exception) => exception.Throw();
+        public static void RethrowDispatchInfo(ExceptionDispatchInfo dispatchInfo) => dispatchInfo.Throw();
 
         /// <summary>
-        ///     Throws an <see cref="AggregateException" /> containing the specified exceptions.
-        /// </summary>
-        /// <param name="exceptions">
-        ///     The non-null sequence of callback or exception-handler failures to include. An empty sequence
-        ///     produces an empty <see cref="AggregateException" />.
-        /// </param>
-        /// <exception cref="AggregateException">Always thrown with the supplied exceptions as its inner exceptions.</exception>
-        [DoesNotReturn]
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void ThrowAggregate(IEnumerable<Exception> exceptions) => throw new AggregateException(exceptions);
-
-        /// <summary>
-        ///     Maps a recognized <see cref="ExceptionArgument" /> value to its C# parameter name; unrecognized values
-        ///     map to <see langword="null" />.
+        ///     Maps a recognized <see cref="ExceptionArgument" /> value to its C# parameter
+        ///     name. An unrecognized value maps to <see langword="null" />.
         /// </summary>
         /// <param name="argument">The <see cref="ExceptionArgument" /> value to convert.</param>
-        /// <returns>The matching parameter name, or <see langword="null" /> when <paramref name="argument" /> is unrecognized.</returns>
+        /// <returns>
+        ///     The mapped C# parameter name, or <see langword="null" />
+        ///     when the enum value is unrecognized.
+        /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static string? GetArgumentName(ExceptionArgument argument) => argument switch
         {
-            ExceptionArgument.callback => "callback",
-            ExceptionArgument.capacity => "capacity",
             ExceptionArgument.continuation => "continuation",
             ExceptionArgument.scheduler => "scheduler",
             ExceptionArgument.timestamp => "timestamp",
+            _ => null
+        };
+
+        /// <summary>
+        ///     Returns the resource string associated with the specified
+        ///     <see cref="ExceptionResource" /> value.
+        /// </summary>
+        /// <param name="resource">The <see cref="ExceptionResource" /> value to convert.</param>
+        /// <returns>
+        ///     The matching message, or <see langword="null" /> for an unrecognized value.
+        /// </returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string? GetResourceString(ExceptionResource resource) => resource switch
+        {
+            ExceptionResource.InvalidOperation_TaskVersionExhausted => SR.InvalidOperation_TaskVersionExhausted,
+            ExceptionResource.InvalidOperation_TaskAlreadyHasContinuation => SR.InvalidOperation_TaskAlreadyHasContinuation,
+            ExceptionResource.InvalidOperation_TaskConsumedOrReused => SR.InvalidOperation_TaskConsumedOrReused,
+            ExceptionResource.InvalidOperation_TaskNoLongerPending => SR.InvalidOperation_TaskNoLongerPending,
+            ExceptionResource.InvalidOperation_TaskNotCompleted => SR.InvalidOperation_TaskNotCompleted,
             _ => null
         };
     }

@@ -16,15 +16,15 @@ namespace Erinn
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Suspended async methods reuse pooled state machines and continuation delegates. After warm-up,
-    ///                 successful operations within the warmed pool capacity can complete without allocating in a Release
-    ///                 build.
+    ///                 Suspended async methods reuse pooled state machines and continuation delegates.
+    ///                 After warm-up, successful operations within the warmed pool
+    ///                 capacity can complete without allocating in a Release build.
     ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 A suspended, source-backed operation is single-consumption. Await it exactly once and do not
-    ///                 use another copy after it has been consumed.
+    ///                 A suspended, source-backed operation is single-consumption.
+    ///                 Await it exactly once and do not use another copy after it has been consumed.
     ///             </description>
     ///         </item>
     ///         <item>
@@ -35,8 +35,8 @@ namespace Erinn
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Execution contexts and synchronization contexts are not captured. Continuations run inline on
-    ///                 the thread that completes the awaited operation.
+    ///                 Execution contexts and synchronization contexts are not captured.
+    ///                 Continuations run inline on the thread that completes the awaited operation.
     ///             </description>
     ///         </item>
     ///     </list>
@@ -63,7 +63,8 @@ namespace Erinn
         public static ErinnTask CompletedTask => default;
 
         /// <summary>
-        ///     Creates an operation that has already completed with the specified result. Awaiting it completes
+        ///     Creates an operation that has already completed with the specified result.
+        ///     Awaiting it completes
         ///     synchronously and does not allocate completion storage, regardless of the result type.
         /// </summary>
         /// <param name="result">The result of the operation.</param>
@@ -72,7 +73,8 @@ namespace Erinn
         public static ErinnTask<T> FromResult<T>(T result) => new(result);
 
         /// <summary>
-        ///     Gets the awaiter for this operation. This method is intended for compiler-generated <c>await</c>
+        ///     Gets the awaiter for this operation. This method is intended for
+        ///     compiler-generated <c>await</c>
         ///     expressions; manually consuming a source-backed operation still follows its single-await rule.
         /// </summary>
         /// <returns>The awaiter for this operation.</returns>
@@ -96,11 +98,14 @@ namespace Erinn
             internal Awaiter(ErinnTask<ErinnTaskUnit>.Awaiter awaiter) => _awaiter = awaiter;
 
             /// <summary>
-            ///     Gets <see langword="true" /> if the operation is complete; otherwise <see langword="false" />. The
-            ///     default awaiter is always complete; a source-backed awaiter reads the completion state for its
-            ///     captured source version.
+            ///     Gets <see langword="true" /> if the operation is complete; otherwise
+            ///     <see langword="false" />. The
+            ///     default awaiter is always complete; a source-backed awaiter
+            ///     reads the completion state for its captured source version.
             /// </summary>
-            /// <exception cref="InvalidOperationException">Thrown if the source version is stale or the operation was consumed.</exception>
+            /// <exception cref="InvalidOperationException">
+            ///     Thrown if the source version is stale or the operation was consumed.
+            /// </exception>
             public bool IsCompleted => _awaiter.IsCompleted;
 
             /// <summary>
@@ -110,37 +115,50 @@ namespace Erinn
             ///     Thrown if the source-backed operation is pending, its source version is
             ///     stale, or it has already been consumed.
             /// </exception>
-            /// <exception cref="Exception">Rethrows the stored exception if the operation completed with a failure.</exception>
+            /// <exception cref="Exception">
+            ///     Rethrows the stored exception if the operation completed
+            ///     with a failure.
+            /// </exception>
             public void GetResult() => _awaiter.GetResult();
 
             /// <summary>
-            ///     Registers the continuation to run when the operation completes. An already completed operation
-            ///     invokes it inline on this thread; otherwise, the completing thread invokes it inline. The execution
-            ///     context is not captured, and only one continuation can be registered on a source-backed operation.
+            ///     Registers the continuation to run when the operation completes.
+            ///     An already completed operation invokes it inline on this thread;
+            ///     otherwise, the completing thread invokes it inline. The execution context is not
+            ///     captured, and only one continuation can be registered on a source-backed operation.
             /// </summary>
             /// <param name="continuation">The continuation to invoke.</param>
-            /// <exception cref="ArgumentNullException">Thrown if <paramref name="continuation" /> is null.</exception>
+            /// <exception cref="ArgumentNullException">
+            ///     Thrown if
+            ///     <paramref name="continuation" /> is null.
+            /// </exception>
             /// <exception cref="InvalidOperationException">
-            ///     Thrown if the source version is stale or consumed, or a continuation is
-            ///     already registered.
+            ///     Thrown if the source version is stale or consumed,
+            ///     or a continuation is already registered.
             /// </exception>
             /// <exception cref="Exception">
-            ///     Propagates an exception thrown by <paramref name="continuation" /> if this call invokes it inline.
+            ///     Propagates an exception thrown by
+            ///     <paramref name="continuation" /> if this call invokes it inline.
             /// </exception>
             public void OnCompleted(Action continuation) => _awaiter.OnCompleted(continuation);
 
             /// <summary>
-            ///     Registers the continuation without capturing the execution context. For this implementation it has the
-            ///     same completion and single-registration behavior as <see cref="OnCompleted" />.
+            ///     Registers the continuation without capturing the execution context.
+            ///     For this implementation it has the same completion and
+            ///     single-registration behavior as <see cref="OnCompleted" />.
             /// </summary>
             /// <param name="continuation">The continuation to invoke.</param>
-            /// <exception cref="ArgumentNullException">Thrown if <paramref name="continuation" /> is null.</exception>
+            /// <exception cref="ArgumentNullException">
+            ///     Thrown if
+            ///     <paramref name="continuation" /> is null.
+            /// </exception>
             /// <exception cref="InvalidOperationException">
-            ///     Thrown if the source version is stale or consumed, or a continuation is
-            ///     already registered.
+            ///     Thrown if the source version is stale or consumed,
+            ///     or a continuation is already registered.
             /// </exception>
             /// <exception cref="Exception">
-            ///     Propagates an exception thrown by <paramref name="continuation" /> if this call invokes it inline.
+            ///     Propagates an exception thrown by
+            ///     <paramref name="continuation" /> if this call invokes it inline.
             /// </exception>
             public void UnsafeOnCompleted(Action continuation) => _awaiter.UnsafeOnCompleted(continuation);
         }

@@ -6,27 +6,28 @@ using System.Runtime.InteropServices;
 namespace Erinn
 {
     /// <summary>
-    ///     Represents a handle returned by <see cref="ErinnTimerScheduler.Schedule{T}" /> or
-    ///     <see cref="ErinnTimerSchedulerExtensions.WaitUntil" /> that allows a scheduled timer to be canceled before
-    ///     it fires. Canceling still invokes the callback, reported with
-    ///     <see cref="ErinnTimerTag.Canceled" />.
+    ///     Represents a handle that can cancel a scheduled timer before it fires.
+    ///     Canceling still invokes its callback with <see cref="ErinnTimerTag.Canceled" />.
     /// </summary>
     /// <remarks>
     ///     <list type="bullet">
     ///         <item>
     ///             <description>
-    ///                 Cancellation does not mutate the handle. Repeated calls return <see langword="false" /> after
+    ///                 Cancellation does not mutate the handle. Repeated calls return
+    ///                 <see langword="false" /> after
     ///                 the timer is no longer pending.
     ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Handles are value copies that refer to one scheduler entry and are not thread-safe. Use them
-    ///                 only on the owning scheduler's thread.
+    ///                 Handles are value copies that refer to one scheduler entry and are
+    ///                 not thread-safe. Use them only on the owning scheduler's thread.
     ///             </description>
     ///         </item>
     ///         <item>
-    ///             <description>An empty or default handle is invalid and cannot cancel a timer.</description>
+    ///             <description>
+    ///                 An empty or default handle is invalid and cannot cancel a timer.
+    ///             </description>
     ///         </item>
     ///     </list>
     /// </remarks>
@@ -44,7 +45,8 @@ namespace Erinn
         private readonly IErinnTimerBucket? _bucket;
 
         /// <summary>
-        ///     The index of the entry inside its bucket; meaningful only together with the scheduler and timer uid.
+        ///     The index of the entry inside its bucket;
+        ///     meaningful only together with the scheduler and timer uid.
         /// </summary>
         private readonly int _slotIndex;
 
@@ -70,21 +72,22 @@ namespace Erinn
 
         /// <summary>
         ///     Gets <see langword="true" /> if the scheduler issued this handle for a timer; otherwise
-        ///     <see langword="false" />. This remains <see langword="true" /> after the timer completes or its
-        ///     scheduler is disposed.
+        ///     <see langword="false" />. It remains <see langword="true" /> after the timer
+        ///     completes or after its scheduler is disposed.
         /// </summary>
         /// <remarks>
-        ///     The handle is immutable. This property does not query timer liveness; <see cref="Cancel" />
-        ///     reports whether a pending timer was actually canceled.
+        ///     The handle is immutable. This property does not query timer liveness;
+        ///     <see cref="Cancel" /> reports whether a pending timer was actually canceled.
         /// </remarks>
         public bool IsCreated => _scheduler != null;
 
         /// <summary>
-        ///     Gets the scheduler that issued this handle, or <see langword="null" /> when this is a default handle.
+        ///     Gets the scheduler that issued this handle,
+        ///     or <see langword="null" /> when this is a default handle.
         /// </summary>
         /// <remarks>
-        ///     The returned scheduler may already be disposed. This property reports handle ownership; it does not
-        ///     indicate whether the timer is still pending.
+        ///     The returned scheduler may already be disposed. This property reports
+        ///     handle ownership; it does not indicate whether the timer is still pending.
         /// </remarks>
         public ErinnTimerScheduler? Scheduler => _scheduler;
 
@@ -92,25 +95,29 @@ namespace Erinn
         ///     Gets this timer's non-zero uid, or <c>0</c> when this is a default handle.
         /// </summary>
         /// <remarks>
-        ///     Timer uids are unique only within their owning scheduler. Use <see cref="Scheduler" /> together with this
+        ///     Timer uids are unique only within their owning scheduler. Use
+        ///     <see cref="Scheduler" /> together with this
         ///     value to identify a timer across scheduler instances.
         /// </remarks>
         public ulong Uid => _uid;
 
         /// <summary>
-        ///     Cancels the timer associated with this handle and immediately invokes its callback on the calling thread with
+        ///     Cancels the timer associated with this handle and immediately
+        ///     invokes its callback on the calling thread with
         ///     <see cref="ErinnTimerTag.Canceled" />, if it has not fired yet.
         /// </summary>
         /// <returns>
         ///     <see langword="true" /> if a pending timer was canceled and its callback was invoked with
-        ///     <see cref="ErinnTimerTag.Canceled" />; otherwise <see langword="false" /> if the handle is empty, the
+        ///     <see cref="ErinnTimerTag.Canceled" />; otherwise <see langword="false" /> if
+        ///     the handle is empty, the
         ///     scheduler is disposed, or the timer is no longer pending.
         /// </returns>
         /// <exception cref="Exception">
         ///     <list type="bullet">
         ///         <item>
         ///             <description>
-        ///                 The callback exception is rethrown when <see cref="ErinnTimerScheduler.OnException" /> is
+        ///                 The callback exception is rethrown when
+        ///                 <see cref="ErinnTimerScheduler.OnException" /> is
         ///                 <see langword="null" />.
         ///             </description>
         ///         </item>
@@ -120,7 +127,8 @@ namespace Erinn
         ///     </list>
         /// </exception>
         /// <remarks>
-        ///     The timer entry is released before the callback runs, so a throwing callback cannot leave the timer pending.
+        ///     The timer entry is released before the callback runs,
+        ///     so a throwing callback cannot leave the timer pending.
         /// </remarks>
         [ThreadAffine]
         public bool Cancel() => _scheduler != null && _scheduler.Cancel(_bucket!, _slotIndex, _uid);
@@ -131,7 +139,8 @@ namespace Erinn
         /// </summary>
         /// <param name="other">The handle to compare with this handle.</param>
         /// <returns>
-        ///     <see langword="true" /> if both handles have the same scheduler reference and timer uid; otherwise
+        ///     <see langword="true" /> if both handles have the same scheduler reference
+        ///     and timer uid; otherwise
         ///     <see langword="false" />.
         /// </returns>
         public bool Equals(ErinnTimerHandle other) => ReferenceEquals(_scheduler, other._scheduler) && _uid == other._uid;
@@ -147,8 +156,8 @@ namespace Erinn
         public override bool Equals(object? obj) => obj is ErinnTimerHandle other && Equals(other);
 
         /// <summary>
-        ///     Returns a hash code based on the owning scheduler reference and timer uid.
-        ///     Equal handles return equal hash codes.
+        ///     Returns a hash code based on the owning scheduler
+        ///     reference and timer uid. Equal handles return equal hash codes.
         /// </summary>
         /// <returns>The hash code for this handle.</returns>
         public override int GetHashCode() => HashCode.Combine(_scheduler, _uid);

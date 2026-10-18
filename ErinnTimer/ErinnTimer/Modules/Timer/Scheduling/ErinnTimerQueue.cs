@@ -6,11 +6,12 @@ using System.Runtime.CompilerServices;
 namespace Erinn
 {
     /// <summary>
-    ///     Orders timer nodes in a four-way heap and records their heap positions in their owning slots for direct removal.
+    ///     Orders timer nodes in a four-way heap and records their
+    ///     heap positions in their owning slots for direct removal.
     /// </summary>
     /// <remarks>
-    ///     This queue is owned by one scheduler and is unsynchronized. All access must occur on that scheduler's thread;
-    ///     concurrent calls are unsupported.
+    ///     This queue is owned by one scheduler and is unsynchronized.
+    ///     All access must occur on that scheduler's thread; concurrent calls are unsupported.
     /// </remarks>
     internal sealed class ErinnTimerQueue : IDisposable
     {
@@ -28,10 +29,13 @@ namespace Erinn
         ///     Initializes a new instance of the <see cref="ErinnTimerQueue" /> class.
         /// </summary>
         /// <param name="capacity">
-        ///     The requested initial capacity. It must be non-negative; values below four allocate storage for
-        ///     four nodes.
+        ///     The requested initial capacity. It must be non-negative;
+        ///     values below four allocate storage for four nodes.
         /// </param>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="capacity" /> is negative.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown when <paramref name="capacity" />
+        ///     is negative.
+        /// </exception>
         public ErinnTimerQueue(int capacity)
         {
             ThrowHelpers.ThrowIfNegative(capacity, ExceptionArgument.capacity);
@@ -49,8 +53,9 @@ namespace Erinn
         ///     Adds a timer node in scheduling order.
         /// </summary>
         /// <param name="node">
-        ///     The timer node to insert. Its bucket must be non-null, its slot must already be allocated, and that slot
-        ///     must remain active until the node is removed. This method updates the bucket's queue-index metadata.
+        ///     The timer node to insert. Its bucket must be non-null, its slot must already
+        ///     be allocated, and that slot must remain active until the node is removed.
+        ///     This method updates the bucket's queue-index metadata.
         /// </param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [ThreadAffine]
@@ -73,7 +78,8 @@ namespace Erinn
         /// </summary>
         /// <param name="node">When this method returns, contains the removed timer node.</param>
         /// <returns>
-        ///     <see langword="true" /> if a node was removed; otherwise <see langword="false" /> and <paramref name="node" />
+        ///     <see langword="true" /> if a node was removed; otherwise <see langword="false" /> and
+        ///     <paramref name="node" />
         ///     is default.
         /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -84,14 +90,17 @@ namespace Erinn
         ///     Removes the earliest timer when its timestamp is at or before the specified timestamp.
         /// </summary>
         /// <param name="timestamp">
-        ///     The inclusive upper bound; a node is due when its timestamp is less than or equal to this
-        ///     value.
+        ///     The inclusive upper bound; a node is due when its
+        ///     timestamp is less than or equal to this value.
         /// </param>
         /// <param name="node">
-        ///     When this method returns <see langword="true" />, contains the removed timer node; otherwise,
-        ///     contains default.
+        ///     When this method returns <see langword="true" />,
+        ///     contains the removed timer node; otherwise, contains default.
         /// </param>
-        /// <returns><see langword="true" /> if the earliest node was due and removed; otherwise <see langword="false" />.</returns>
+        /// <returns>
+        ///     <see langword="true" /> if the earliest node was due and removed; otherwise
+        ///     <see langword="false" />.
+        /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [ThreadAffine]
         public bool TryDequeue(ulong timestamp, out ErinnTimerNode node)
@@ -108,11 +117,12 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Removes a timer at its stored heap position and restores scheduling order. The caller must supply a valid
-        ///     occupied index; this method does not validate the index.
+        ///     Removes a timer at its stored heap position and restores scheduling order.
+        ///     The caller must supply a valid occupied index; this method does not validate the index.
         /// </summary>
         /// <param name="index">
-        ///     An occupied heap index in the range [0, <see cref="_count" />). Callers obtain it from the owning
+        ///     An occupied heap index in the range [0, <see cref="_count" />).
+        ///     Callers obtain it from the owning
         ///     bucket's queue-index metadata; this method assumes the index is valid.
         /// </param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -7,7 +7,8 @@ using System.Runtime.InteropServices;
 namespace Erinn
 {
     /// <summary>
-    ///     Builds an async operation whose state machine and continuation are pooled after its first suspension.
+    ///     Builds an async operation whose state machine and continuation are pooled
+    ///     after its first suspension.
     /// </summary>
     /// <typeparam name="T">The type of the result.</typeparam>
     /// <remarks>
@@ -17,15 +18,22 @@ namespace Erinn
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Synchronous success stores <typeparamref name="T" /> inline. The first suspension rents a
-    ///                 typed runner; synchronous failure rents a completion source so the exception remains awaitable.
+    ///                 Synchronous success stores <typeparamref name="T" /> inline.
+    ///                 The first suspension rents a typed runner; synchronous failure
+    ///                 rents a completion source so the exception remains awaitable.
     ///             </description>
     ///         </item>
     ///         <item>
-    ///             <description>The state machine resumes inline on the thread selected by the awaited operation.</description>
+    ///             <description>
+    ///                 The state machine resumes inline on the thread selected by the awaited
+    ///                 operation.
+    ///             </description>
     ///         </item>
     ///         <item>
-    ///             <description>The builder does not capture an execution or synchronization context.</description>
+    ///             <description>
+    ///                 The builder does not capture an execution or
+    ///                 synchronization context.
+    ///             </description>
     ///         </item>
     ///     </list>
     /// </remarks>
@@ -43,8 +51,9 @@ namespace Erinn
         private T _result;
 
         /// <summary>
-        ///     Gets the operation returned to the caller of the async method. Before suspension this is an inline
-        ///     completed result; after suspension or failure it references the runner/source and its current version.
+        ///     Gets the operation returned to the caller of the async method.
+        ///     Before suspension this is an inline completed result;
+        ///     after suspension or failure it references the runner/source and its current version.
         /// </summary>
         public ErinnTask<T> Task => _source == null ? new ErinnTask<T>(_result) : new ErinnTask<T>(_source);
 
@@ -55,8 +64,9 @@ namespace Erinn
         public static ErinnTaskMethodBuilder<T> Create() => default;
 
         /// <summary>
-        ///     Runs the state machine synchronously until its first incomplete await or until it completes. The initial
-        ///     invocation uses the state machine by reference and does not box it. The compiler-generated state machine
+        ///     Runs the state machine synchronously until its first incomplete
+        ///     await or until it completes. The initial invocation uses the state
+        ///     machine by reference and does not box it. The compiler-generated state machine
         ///     catches method exceptions and reports them through <see cref="SetException" />.
         /// </summary>
         /// <param name="stateMachine">The state machine to start.</param>
@@ -64,10 +74,10 @@ namespace Erinn
         public void Start<TStateMachine>(ref TStateMachine stateMachine) where TStateMachine : IAsyncStateMachine => stateMachine.MoveNext();
 
         /// <summary>
-        ///     Accepts the compiler's state machine notification without installing the supplied boxed state machine.
-        ///     On suspension, the typed runner retains the state machine by value through
-        ///     <see cref="AwaitUnsafeOnCompleted{TAwaiter, TStateMachine}(ref TAwaiter, ref TStateMachine)" /> or
-        ///     <see cref="AwaitOnCompleted{TAwaiter, TStateMachine}(ref TAwaiter, ref TStateMachine)" />.
+        ///     Accepts the compiler's state machine notification without
+        ///     installing the supplied boxed state machine. On suspension, the typed runner
+        ///     retains the state machine by value. The builder's <c>AwaitOnCompleted</c>
+        ///     and <c>AwaitUnsafeOnCompleted</c> paths register its continuation.
         /// </summary>
         /// <param name="stateMachine">The state machine reported by the compiler.</param>
         public void SetStateMachine(IAsyncStateMachine stateMachine)
@@ -88,12 +98,14 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Completes the async operation with the specified exception. If the method never suspended, this rents
-        ///     completion storage so the returned operation can carry the failure; otherwise the existing runner source
-        ///     stores it and invokes any registered continuation inline.
+        ///     Completes the async operation with the specified exception. If the method never suspended,
+        ///     this rents completion storage so the returned operation can carry the failure; otherwise
+        ///     the existing runner source stores it and invokes any registered continuation inline.
         /// </summary>
         /// <param name="exception">The non-null exception thrown by the async method.</param>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="exception" /> is null.</exception>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown if <paramref name="exception" /> is null.
+        /// </exception>
         public void SetException(Exception exception)
         {
             var source = _source ??= ErinnTaskCompletionSource<T>.Rent();
@@ -113,8 +125,9 @@ namespace Erinn
 
         /// <summary>
         ///     Registers the pooled state-machine continuation through the awaiter's
-        ///     <see cref="ICriticalNotifyCompletion.UnsafeOnCompleted" /> method. This builder path does not request
-        ///     execution-context capture; scheduling remains controlled by the awaiter.
+        ///     <see cref="ICriticalNotifyCompletion.UnsafeOnCompleted" /> method. This
+        ///     builder path does not request execution-context capture;
+        ///     scheduling remains controlled by the awaiter.
         /// </summary>
         /// <param name="awaiter">The awaiter that supplies the completion signal.</param>
         /// <param name="stateMachine">The state machine to resume.</param>
@@ -123,8 +136,9 @@ namespace Erinn
         public void AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine) where TAwaiter : ICriticalNotifyCompletion where TStateMachine : IAsyncStateMachine => awaiter.UnsafeOnCompleted(GetContinuation(ref stateMachine));
 
         /// <summary>
-        ///     On the first incomplete await, rents a typed runner, connects the builder, copies the state machine, and
-        ///     gets the runner's cached delegate. Later awaits reuse the same runner and delegate.
+        ///     On the first incomplete await, rents a typed runner, connects the builder,
+        ///     copies the state machine, and gets the runner's cached delegate.
+        ///     Later awaits reuse the same runner and delegate.
         /// </summary>
         /// <param name="stateMachine">The state machine to store on its first suspension.</param>
         /// <typeparam name="TStateMachine">The type of the state machine.</typeparam>

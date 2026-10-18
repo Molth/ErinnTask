@@ -12,23 +12,23 @@ namespace Erinn
     ///     <list type="bullet">
     ///         <item>
     ///             <description>
-    ///                 Timestamps are absolute unsigned values in the caller's chosen time domain. This method does not
-    ///                 read a clock, convert units, or calculate a delay.
+    ///                 Timestamps are absolute unsigned values in the caller's chosen time domain.
+    ///                 This method does not read a clock, convert units, or calculate a delay.
     ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Scheduling, updating, cancellation, and disposal must use the scheduler's owning thread. A
-    ///                 continuation registered before completion runs inline on the thread that completes the timer. Once
-    ///                 completion has occurred, consuming the result does not access the scheduler and may happen on
-    ///                 another thread.
+    ///                 Scheduling, updating, cancellation, and disposal must use the scheduler's owning
+    ///                 thread. A continuation registered before completion runs inline on the thread
+    ///                 that completes the timer. Once completion has occurred, consuming the result
+    ///                 does not access the scheduler and may happen on another thread.
     ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Cancellation and scheduler disposal complete the awaitable with result tags; they do not create
-    ///                 cancellation exceptions. Exceptions thrown by a continuation invoked during completion follow
-    ///                 the scheduler's callback exception policy.
+    ///                 Cancellation and scheduler disposal complete the awaitable with result tags;
+    ///                 they do not create cancellation exceptions. Exceptions thrown by a continuation
+    ///                 invoked during completion follow the scheduler's callback exception policy.
     ///             </description>
     ///         </item>
     ///     </list>
@@ -40,10 +40,13 @@ namespace Erinn
         /// </summary>
         /// <param name="scheduler">The scheduler that owns the timers.</param>
         /// <returns>A view over <paramref name="scheduler" />.</returns>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="scheduler" /> is <see langword="null" />.</exception>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown if <paramref name="scheduler" /> is
+        ///     <see langword="null" />.
+        /// </exception>
         /// <remarks>
-        ///     The view does not create, own, or dispose a scheduler. Its timer operations must remain on the scheduler's
-        ///     owning thread.
+        ///     The view does not create, own, or dispose a scheduler.
+        ///     Its timer operations must remain on the scheduler's owning thread.
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ErinnTimerSchedulerMicrosecondsView InMicroseconds(this ErinnTimerScheduler scheduler)
@@ -59,7 +62,8 @@ namespace Erinn
         /// <param name="scheduler">The scheduler that owns the timer.</param>
         /// <param name="timestamp">
         ///     The absolute timestamp. Use the same time domain and unit as later calls to
-        ///     <see cref="ErinnTimerScheduler.Update" />. Every <see cref="ulong" /> value is accepted; this value is
+        ///     <see cref="ErinnTimerScheduler.Update" />. Every <see cref="ulong" /> value is
+        ///     accepted; this value is
         ///     not interpreted as a delay.
         /// </param>
         /// <param name="handle">
@@ -70,16 +74,24 @@ namespace Erinn
         ///     <see cref="ErinnTimerTag.Canceled" /> when it is canceled, or
         ///     <see cref="ErinnTimerTag.Disposed" /> if the scheduler is disposed while it is pending.
         /// </returns>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="scheduler" /> is <see langword="null" />.</exception>
-        /// <exception cref="ObjectDisposedException">Thrown if the scheduler has already been disposed.</exception>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown if <paramref name="scheduler" /> is
+        ///     <see langword="null" />.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        ///     Thrown if the scheduler has already
+        ///     been disposed.
+        /// </exception>
         /// <exception cref="InvalidOperationException">
-        ///     Thrown if the scheduler has exhausted its timer uids or the pooled completion source cannot be reused.
+        ///     Thrown if the scheduler has exhausted its timer
+        ///     uids or the pooled completion source cannot be reused.
         /// </exception>
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>
         ///             <description>
-        ///                 A timestamp of <c>0</c> is queued normally and completes only after an update reaches it,
+        ///                 A timestamp of <c>0</c> is queued normally and completes only
+        ///                 after an update reaches it,
         ///                 cancellation, or scheduler disposal.
         ///             </description>
         ///         </item>
@@ -88,10 +100,11 @@ namespace Erinn
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 Once callbacks, routed buckets, the per-thread completion-source pool, and scheduler arrays
-        ///                 are initialized and have sufficient capacity, scheduling and successful completion can avoid
-        ///                 managed allocations. First-use initialization, pool or array growth, and exception paths can
-        ///                 allocate.
+        ///                 Once callbacks, routed buckets, the shared bounded completion-source queue, and scheduler
+        ///                 arrays are initialized and have sufficient capacity, scheduling and successful
+        ///                 completion can avoid managed allocations. First-use initialization, a source
+        ///                 allocation when the queue is empty, scheduler-array growth, and exception paths
+        ///                 can allocate.
         ///             </description>
         ///         </item>
         ///     </list>
@@ -110,14 +123,15 @@ namespace Erinn
             catch (Exception exception)
             {
                 source.ReleaseUnscheduled();
-                ThrowHelpers.Throw(exception);
+                ThrowHelpers.RethrowException(exception);
             }
 
             return new ErinnTask<ErinnTimerTag>(source);
         }
 
         /// <summary>
-        ///     Holds the timer completion callback shared by all awaitable timers created by this extension type.
+        ///     Holds the timer completion callback shared by all awaitable timers
+        ///     created by this extension type.
         /// </summary>
         private static class CallbackCache
         {

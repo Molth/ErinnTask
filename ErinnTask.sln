@@ -2,6 +2,10 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ErinnTask", "ErinnTask\ErinnTask.csproj", "{BD9875C4-30A5-438B-83F5-923E60B38433}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ErinnTimer", "ErinnTimer\ErinnTimer.csproj", "{4ACA285E-5970-47AB-8980-D6BC94A59839}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ErinnArrayQueue", "ErinnArrayQueue\ErinnArrayQueue.csproj", "{CFE4BD58-398D-4D80-B601-A2631D0FED95}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +16,13 @@ Global
 		{BD9875C4-30A5-438B-83F5-923E60B38433}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BD9875C4-30A5-438B-83F5-923E60B38433}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BD9875C4-30A5-438B-83F5-923E60B38433}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4ACA285E-5970-47AB-8980-D6BC94A59839}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4ACA285E-5970-47AB-8980-D6BC94A59839}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4ACA285E-5970-47AB-8980-D6BC94A59839}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4ACA285E-5970-47AB-8980-D6BC94A59839}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CFE4BD58-398D-4D80-B601-A2631D0FED95}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CFE4BD58-398D-4D80-B601-A2631D0FED95}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CFE4BD58-398D-4D80-B601-A2631D0FED95}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CFE4BD58-398D-4D80-B601-A2631D0FED95}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

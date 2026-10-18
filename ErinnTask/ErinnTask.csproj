@@ -7,13 +7,13 @@
         <Nullable>enable</Nullable>
 
         <PackageId>ErinnTask</PackageId>
-        <Version>1.0.5</Version>
+        <Version>1.0.7</Version>
         <Authors>Molth Nevin</Authors>
         <Company>Hell</Company>
-        <Description>Lightweight task-like asynchronous primitives and timer scheduling for .NET.</Description>
+        <Description>Lightweight asynchronous primitives.</Description>
         <PackageProjectUrl>https://github.com/Molth/ErinnTask</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <PackageTags>async;task;timer;performance</PackageTags>
+        <PackageTags>async;task;performance</PackageTags>
 
         <PackageOutputPath>./nupkgs</PackageOutputPath>
         <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -21,6 +21,11 @@
 
         <SolutionRoot>$(MSBuildThisFileDirectory)../</SolutionRoot>
     </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="ErinnArrayQueue" Version="1.0.1" />
+        <PackageReference Include="ErinnTimer" Version="1.0.1" />
+    </ItemGroup>
 
     <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
         <LangVersion>9.0</LangVersion>
@@ -31,7 +36,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="$(SolutionRoot)README.md">
+        <None Include="README.md">
             <Pack>true</Pack>
             <PackagePath>\</PackagePath>
             <Link>README.md</Link>

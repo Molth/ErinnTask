@@ -7,7 +7,8 @@ using System.Runtime.CompilerServices;
 namespace Erinn
 {
     /// <summary>
-    ///     Schedules callbacks to run at caller-supplied absolute timestamps and drives them through <see cref="Update" />.
+    ///     Schedules callbacks to run at caller-supplied absolute
+    ///     timestamps and drives them through <see cref="Update" />.
     /// </summary>
     /// <remarks>
     ///     <list type="bullet">
@@ -16,22 +17,21 @@ namespace Erinn
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Typed buckets own callback storage and slot reuse, while queue nodes and cancellation handles
-    ///                 address those buckets directly.
+    ///                 Typed buckets own callback storage and slot reuse, while queue
+    ///                 nodes and cancellation handles address those buckets directly.
     ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Reference-type payloads use the shared object bucket. Reference-free value payloads of at most
-    ///                 four bytes use the <see cref="int" /> bucket; payloads larger than four and at most eight bytes
-    ///                 use the <see cref="long" /> bucket. Other value payloads use per-scheduler buckets keyed by
-    ///                 their routed slot type. Payloads are stored without boxing.
+    ///                 Timer payloads are stored without boxing. Common reference and small-value
+    ///                 payloads use shared typed buckets; other value types use per-scheduler buckets.
     ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Timestamps are caller-supplied absolute unsigned values; the scheduler has no clock and does not
-    ///                 calculate delays. Call <see cref="Update" /> with values from the same time domain.
+    ///                 Raw timestamps are caller-supplied absolute unsigned values.
+    ///                 The scheduler has no clock.
+    ///                 Use the same time domain for scheduling and calls to <see cref="Update" />.
     ///             </description>
     ///         </item>
     ///         <item>
@@ -43,13 +43,15 @@ namespace Erinn
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Callback exceptions are reported through <see cref="OnException" /> when a handler is configured;
-    ///                 otherwise they propagate from the triggering operation or are aggregated during disposal.
+    ///                 A configured <see cref="OnException" /> handler receives callback exceptions.
+    ///                 Without a handler, they propagate from <see cref="Update" /> or cancellation;
+    ///                 disposal collects failures and throws them after draining pending timers.
     ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Concurrent operations from multiple threads on the same scheduler instance are not allowed;
+    ///                 Concurrent operations from multiple threads on the same scheduler
+    ///                 instance are not allowed;
     ///                 its queue, buckets, and disposal state are unsynchronized.
     ///             </description>
     ///         </item>
@@ -58,14 +60,15 @@ namespace Erinn
     public sealed class ErinnTimerScheduler : IDisposable
     {
         /// <summary>
-        ///     Indicates whether disposal has started. Set before pending callbacks are invoked so reentrant scheduling
-        ///     is rejected and cancellation returns false during disposal.
+        ///     Indicates whether disposal has started. Set before pending callbacks are invoked
+        ///     so reentrant scheduling is rejected and cancellation returns false during disposal.
         /// </summary>
         private bool _disposed;
 
         /// <summary>
-        ///     The last timer uid assigned.
-        ///     Timer uids are never reused; scheduling stops when the counter reaches <see cref="ulong.MaxValue" />.
+        ///     The last timer uid assigned. Timer uids are never reused;
+        ///     scheduling stops when the counter reaches
+        ///     <see cref="ulong.MaxValue" />.
         /// </summary>
         private ulong _uid;
 
@@ -75,22 +78,26 @@ namespace Erinn
         private readonly ErinnTimerQueue _timers;
 
         /// <summary>
-        ///     The per-scheduler bucket shared by every reference-type payload, routed through an object reference slot.
+        ///     The per-scheduler bucket shared by every reference-type
+        ///     payload, routed through an object reference slot.
         /// </summary>
         private readonly ErinnTimerBucket<object> _referenceBucket;
 
         /// <summary>
-        ///     The per-scheduler bucket shared by reference-free value payloads whose size is at most four bytes.
+        ///     The per-scheduler bucket shared by reference-free value payloads
+        ///     whose size is at most four bytes.
         /// </summary>
         private readonly ErinnTimerBucket<int> _smallBucket;
 
         /// <summary>
-        ///     The per-scheduler bucket shared by reference-free value payloads larger than four and at most eight bytes.
+        ///     The per-scheduler bucket shared by reference-free value
+        ///     payloads larger than four and at most eight bytes.
         /// </summary>
         private readonly ErinnTimerBucket<long> _wideBucket;
 
         /// <summary>
-        ///     Per-scheduler fallback buckets keyed only by routed storage slot type, created on first use for that slot.
+        ///     Per-scheduler fallback buckets keyed only by routed
+        ///     storage slot type, created on first use for that slot.
         /// </summary>
         private readonly Dictionary<Type, IErinnTimerBucket> _buckets;
 
@@ -98,8 +105,8 @@ namespace Erinn
         ///     Initializes a new independent scheduler with empty timer and callback storage.
         /// </summary>
         /// <remarks>
-        ///     The scheduler does not create a clock or choose a timestamp unit. Its raw timestamp values can represent
-        ///     any caller-defined time domain, provided scheduling and update calls use the same origin and unit.
+        ///     Raw timestamps may represent any caller-defined time domain.
+        ///     Use the same origin and unit when scheduling and updating.
         /// </remarks>
         public ErinnTimerScheduler()
         {
@@ -111,27 +118,33 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Gets or sets the callback invoked when a timer callback throws. The handler is read when the exception is
-        ///     reported, so replacing it affects later reports; setting it to <see langword="null" /> makes the original
-        ///     callback exception propagate from the triggering operation.
+        ///     Gets or sets the handler invoked when a timer callback throws.
+        ///     The current handler is read when the exception is reported, so replacing it
+        ///     affects later reports. Setting it to <see langword="null" /> allows the
+        ///     callback exception to propagate from <see cref="Update" /> or cancellation.
         /// </summary>
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>
         ///             <description>
-        ///                 When this is <see langword="null" />, a callback exception is thrown to the caller of
+        ///                 When this is <see langword="null" />, a callback exception
+        ///                 is thrown to the caller of
         ///                 <see cref="Update" /> and <see cref="ErinnTimerHandle.Cancel" />.
         ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 When this callback itself throws, that exception is propagated from <see cref="Update" /> and
+        ///                 When this callback itself throws, that exception is propagated from
+        ///                 <see cref="Update" /> and
         ///                 <see cref="ErinnTimerHandle.Cancel" />, and is collected into the
         ///                 <see cref="AggregateException" /> thrown by <see cref="Dispose" />.
         ///             </description>
         ///         </item>
         ///         <item>
-        ///             <description>Disposal releases the handler reference after all pending callbacks have been processed.</description>
+        ///             <description>
+        ///                 Disposal releases the handler reference after all pending callbacks have been
+        ///                 processed.
+        ///             </description>
         ///         </item>
         ///     </list>
         /// </remarks>
@@ -139,39 +152,48 @@ namespace Erinn
         public Action<Exception>? OnException { get; set; }
 
         /// <summary>
-        ///     Marks the scheduler disposed, executes every pending timer with <see cref="ErinnTimerTag.Disposed" />, and
-        ///     releases its queue and bucket storage. Repeated calls after the first are no-ops, including after an
+        ///     Marks the scheduler disposed, executes every pending timer with
+        ///     <see cref="ErinnTimerTag.Disposed" />, and
+        ///     releases its queue and bucket storage.
+        ///     Repeated calls after the first are no-ops, including after an
         ///     <see cref="AggregateException" /> is thrown.
         /// </summary>
         /// <exception cref="AggregateException">
-        ///     Thrown after cleanup if one or more callbacks or exception handlers throw while
-        ///     pending timers are drained.
+        ///     Thrown after cleanup if a callback exception is not handled by
+        ///     <see cref="OnException" />, or if the handler itself throws
+        ///     while pending timers are drained.
         /// </exception>
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>
         ///             <description>
-        ///                 Every pending callback is invoked with <see cref="ErinnTimerTag.Disposed" /> before the scheduler is
-        ///                 cleared.
+        ///                 Before scheduler storage is cleared, each pending timer completes
+        ///                 through its callback with <see cref="ErinnTimerTag.Disposed" />.
         ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 Reentrant updates are ignored and cancellation returns <see langword="false" /> once disposal starts.
+        ///                 Reentrant updates are ignored and cancellation returns
+        ///                 <see langword="false" /> once disposal starts.
         ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 Scheduling from a callback that runs during the drain throws <see cref="ObjectDisposedException" />.
+        ///                 Scheduling from a callback that runs during the drain throws
+        ///                 <see cref="ObjectDisposedException" />.
         ///             </description>
         ///         </item>
         ///         <item>
-        ///             <description>A callback that throws is reported to <see cref="OnException" />.</description>
+        ///             <description>
+        ///                 When configured, <see cref="OnException" /> receives callback exceptions.
+        ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 Callback exceptions without an <see cref="OnException" /> handler, and exceptions thrown by
-        ///                 that handler, are collected and rethrown together as a single <see cref="AggregateException" />
+        ///                 Callback exceptions without an <see cref="OnException" />
+        ///                 handler, and exceptions thrown by that handler,
+        ///                 are collected and rethrown together as a single
+        ///                 <see cref="AggregateException" />
         ///                 after the scheduler has been cleared.
         ///             </description>
         ///         </item>
@@ -222,22 +244,29 @@ namespace Erinn
             OnException = null;
 
             if (aggregated != null)
-                ThrowHelpers.ThrowAggregate(aggregated);
+                ThrowHelpers.ThrowAggregateException(aggregated);
         }
 
         /// <summary>
         ///     Schedules <paramref name="callback" /> to run when the timer is updated at or past
-        ///     <paramref name="timestamp" />. The timestamp is an absolute unsigned value; this method does not read a
+        ///     <paramref name="timestamp" />. The timestamp is an absolute unsigned value;
+        ///     this method does not read a
         ///     clock, convert units, or interpret it as a duration.
         /// </summary>
         /// <param name="timestamp">
         ///     The absolute timestamp at which the callback should run.
         ///     <list type="bullet">
         ///         <item>
-        ///             <description>Every value from <c>0</c> through <see cref="ulong.MaxValue" /> is accepted.</description>
+        ///             <description>
+        ///                 Every value from <c>0</c> through <see cref="ulong.MaxValue" /> is
+        ///                 accepted.
+        ///             </description>
         ///         </item>
         ///         <item>
-        ///             <description>Use the same time domain and unit as subsequent <see cref="Update" /> calls.</description>
+        ///             <description>
+        ///                 Use the same time domain and unit as subsequent
+        ///                 <see cref="Update" /> calls.
+        ///             </description>
         ///         </item>
         ///     </list>
         /// </param>
@@ -248,50 +277,82 @@ namespace Erinn
         ///             <description><see cref="ErinnTimerTag.Ok" /> when the timer fires.</description>
         ///         </item>
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Canceled" /> when the timer is canceled.</description>
+        ///             <description>
+        ///                 <see cref="ErinnTimerTag.Canceled" /> when the timer is
+        ///                 canceled.
+        ///             </description>
         ///         </item>
         ///         <item>
-        ///             <description><see cref="ErinnTimerTag.Disposed" /> when the scheduler is disposed.</description>
+        ///             <description>
+        ///                 <see cref="ErinnTimerTag.Disposed" /> when the scheduler is
+        ///                 disposed.
+        ///             </description>
         ///         </item>
         ///     </list>
         /// </param>
-        /// <param name="data">The payload passed unchanged to the callback; reference payloads may be null.</param>
+        /// <param name="data">
+        ///     The payload passed unchanged to the callback; reference
+        ///     payloads may be null.
+        /// </param>
         /// <typeparam name="T">The type of the data passed to the callback.</typeparam>
         /// <returns>A handle that can be used to cancel the timer before it fires.</returns>
-        /// <exception cref="ObjectDisposedException">Thrown if the scheduler has already been disposed.</exception>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="callback" /> is <see langword="null" />.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if all non-zero timer uids have already been assigned.</exception>
+        /// <exception cref="ObjectDisposedException">
+        ///     Thrown if the scheduler has already
+        ///     been disposed.
+        /// </exception>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown if <paramref name="callback" /> is
+        ///     <see langword="null" />.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown if all non-zero timer uids have already
+        ///     been assigned.
+        /// </exception>
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>
-        ///             <description>The callback is invoked inline on the thread that calls update, cancellation, or disposal.</description>
+        ///             <description>
+        ///                 The callback is invoked inline on the thread that calls update, cancellation,
+        ///                 or disposal.
+        ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
         ///                 A callback exception does not restore the removed timer. It is reported through
-        ///                 <see cref="OnException" /> when a handler is configured; otherwise it propagates from the
+        ///                 <see cref="OnException" /> when a handler is configured;
+        ///                 otherwise it propagates from the
         ///                 triggering operation or is aggregated during disposal.
         ///             </description>
         ///         </item>
         ///         <item>
-        ///             <description>The scheduler must not be accessed concurrently from multiple threads.</description>
-        ///         </item>
-        ///         <item>
-        ///             <description>Reference types are routed through the <see cref="object" /> bucket.</description>
-        ///         </item>
-        ///         <item>
-        ///             <description>Unmanaged payloads of at most 4 bytes are routed through the <see cref="int" /> bucket.</description>
+        ///             <description>
+        ///                 The scheduler must not be accessed concurrently from
+        ///                 multiple threads.
+        ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 Reference-free value payloads larger than 4 and at most 8 bytes are routed through the
+        ///                 Reference types are routed through the
+        ///                 <see cref="object" /> bucket.
+        ///             </description>
+        ///         </item>
+        ///         <item>
+        ///             <description>
+        ///                 Unmanaged payloads of at most 4 bytes are routed through the
+        ///                 <see cref="int" /> bucket.
+        ///             </description>
+        ///         </item>
+        ///         <item>
+        ///             <description>
+        ///                 Reference-free value payloads larger than 4 and at most 8 bytes
+        ///                 are routed through the
         ///                 <see cref="long" /> bucket.
         ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 Other value payloads, including reference-containing structs, use a typed per-scheduler
-        ///                 fallback bucket.
+        ///                 Reference-containing structs and other values use a typed
+        ///                 per-scheduler fallback bucket.
         ///             </description>
         ///         </item>
         ///         <item>
@@ -341,21 +402,26 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Runs every timer whose timestamp is less than or equal to <paramref name="timestamp" />, in timestamp
-        ///     order and then scheduling order for ties. A timer scheduled by a callback can also run during this call
-        ///     if its timestamp is due.
+        ///     Runs every timer due at <paramref name="timestamp" />,
+        ///     ordered by timestamp and then by scheduling order for ties.
+        ///     A callback may schedule another timer that is due in this update.
         /// </summary>
         /// <param name="timestamp">
-        ///     The caller-supplied absolute timestamp in the same unit and time domain used when scheduling
-        ///     timers. Any <see cref="ulong" /> value is accepted.
+        ///     The caller-supplied absolute timestamp in the same unit and time domain
+        ///     used when scheduling timers. Any <see cref="ulong" /> value is accepted.
         /// </param>
         /// <exception cref="Exception">
         ///     <list type="bullet">
         ///         <item>
-        ///             <description>The callback exception propagates when <see cref="OnException" /> is <see langword="null" />.</description>
+        ///             <description>
+        ///                 A callback exception propagates when <see cref="OnException" /> is
+        ///                 <see langword="null" />.
+        ///             </description>
         ///         </item>
         ///         <item>
-        ///             <description>An exception thrown by the configured handler also propagates.</description>
+        ///             <description>
+        ///                 An exception thrown by the configured handler also propagates.
+        ///             </description>
         ///         </item>
         ///     </list>
         /// </exception>
@@ -363,7 +429,8 @@ namespace Erinn
         ///     <list type="bullet">
         ///         <item>
         ///             <description>
-        ///                 Every queued timer due at the supplied timestamp is removed before its callback is invoked.
+        ///                 Every queued timer due at the supplied timestamp
+        ///                 is removed before its callback is invoked.
         ///             </description>
         ///         </item>
         ///         <item>
@@ -374,8 +441,9 @@ namespace Erinn
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 If the handler is <see langword="null" />, the callback exception propagates and stops this update;
-        ///                 if the handler itself throws, that exception propagates and also stops processing.
+        ///                 If the handler is <see langword="null" />, the callback
+        ///                 exception stops this update.
+        ///                 If the configured handler throws, its exception also stops processing.
         ///             </description>
         ///         </item>
         ///         <item>
@@ -403,7 +471,8 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Cancels the timer identified by the specified bucket and slot and immediately invokes its callback.
+        ///     Cancels the timer identified by the specified bucket and slot and
+        ///     immediately invokes its callback.
         ///     The callback is invoked with <see cref="ErinnTimerTag.Canceled" />.
         /// </summary>
         /// <param name="bucket">The bucket that owns the callback; it must belong to this scheduler.</param>
@@ -411,23 +480,32 @@ namespace Erinn
         /// <param name="uid">The non-zero timer uid of the entry.</param>
         /// <returns>
         ///     <see langword="true" /> if the timer was pending and its callback was invoked with
-        ///     <see cref="ErinnTimerTag.Canceled" />; otherwise <see langword="false" /> if disposal has started or the
+        ///     <see cref="ErinnTimerTag.Canceled" />; otherwise <see langword="false" /> if
+        ///     disposal has started or the
         ///     bucket entry is no longer live.
         /// </returns>
         /// <exception cref="Exception">
         ///     <list type="bullet">
         ///         <item>
-        ///             <description>The callback exception propagates when <see cref="OnException" /> is <see langword="null" />.</description>
+        ///             <description>
+        ///                 The callback exception propagates when <see cref="OnException" /> is
+        ///                 <see langword="null" />.
+        ///             </description>
         ///         </item>
         ///         <item>
-        ///             <description>An exception thrown by the configured handler also propagates.</description>
+        ///             <description>
+        ///                 An exception thrown by the configured handler also propagates.
+        ///             </description>
         ///         </item>
         ///     </list>
         /// </exception>
         /// <remarks>
         ///     <list type="bullet">
         ///         <item>
-        ///             <description>A callback that throws is reported to <see cref="OnException" />.</description>
+        ///             <description>
+        ///                 A callback that throws is reported to
+        ///                 <see cref="OnException" />.
+        ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
@@ -449,7 +527,7 @@ namespace Erinn
 
             _timers.RemoveAt(queueIndex);
             if (!bucket.TryComplete(uid, slotIndex, ErinnTimerTag.Canceled, out var exception))
-                ThrowHelpers.ThrowInvalidOperation(SR.InvalidOperation_TimerEntryChangedDuringCancellation);
+                ThrowHelpers.ThrowInvalidOperationException(ExceptionResource.InvalidOperation_TimerEntryChangedDuringCancellation);
 
             ReportException(exception);
 
@@ -475,13 +553,16 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Returns immediately for a null exception; otherwise reports it to the current handler or rethrows it
-        ///     when no handler is installed.
+        ///     Returns immediately for a null exception; otherwise reports
+        ///     it to the current handler or rethrows it when no handler is installed.
         /// </summary>
-        /// <param name="exception">The callback exception, or <see langword="null" /> when the callback succeeded.</param>
+        /// <param name="exception">
+        ///     The callback exception, or <see langword="null" /> when the
+        ///     callback succeeded.
+        /// </param>
         /// <exception cref="Exception">
-        ///     Rethrows the callback exception when no <see cref="OnException" /> handler is configured,
-        ///     or propagates an exception thrown by that handler.
+        ///     Rethrows the callback exception when no <see cref="OnException" />
+        ///     handler is configured, or propagates an exception thrown by that handler.
         /// </exception>
         [ThreadAffine]
         private void ReportException(Exception? exception)
@@ -491,7 +572,7 @@ namespace Erinn
 
             var handler = OnException;
             if (handler == null)
-                ThrowHelpers.Throw(exception);
+                ThrowHelpers.RethrowException(exception);
 
             handler(exception);
         }

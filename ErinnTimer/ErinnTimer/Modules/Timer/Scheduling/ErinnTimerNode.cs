@@ -35,8 +35,14 @@ namespace Erinn
         ///     Initializes a new instance of the <see cref="ErinnTimerNode" /> structure.
         /// </summary>
         /// <param name="bucket">The non-null bucket that owns the callback.</param>
-        /// <param name="slotIndex">The non-negative allocated slot index inside <paramref name="bucket" />.</param>
-        /// <param name="timestamp">The absolute timestamp at which the timer fires, in the scheduler's time domain.</param>
+        /// <param name="slotIndex">
+        ///     The non-negative allocated slot index inside
+        ///     <paramref name="bucket" />.
+        /// </param>
+        /// <param name="timestamp">
+        ///     The absolute timestamp at which the timer fires, in the
+        ///     scheduler's time domain.
+        /// </param>
         /// <param name="uid">The non-zero timer uid of the entry.</param>
         public ErinnTimerNode(IErinnTimerBucket bucket, int slotIndex, ulong timestamp, ulong uid)
         {
@@ -51,7 +57,8 @@ namespace Erinn
         /// </summary>
         /// <param name="other">The node to compare with.</param>
         /// <returns>
-        ///     <see langword="true" /> if this node has an earlier timestamp or the same timestamp and a lower uid;
+        ///     <see langword="true" /> if this node has an earlier timestamp or the same
+        ///     timestamp and a lower uid;
         ///     otherwise <see langword="false" />.
         /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

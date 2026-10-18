@@ -14,32 +14,36 @@ namespace Erinn
     ///     <list type="bullet">
     ///         <item>
     ///             <description>
-    ///                 Synchronously completed operations store their result in the task value and use no completion
-    ///                 source; awaiting such a task completes synchronously. The default value is already complete and
-    ///                 supplies <see langword="default" /> for <typeparamref name="T" />.
+    ///                 Synchronously completed operations store their result in the task
+    ///                 value and use no completion source; awaiting such a task completes
+    ///                 synchronously. The default value is already complete and supplies
+    ///                 <see langword="default" /> for <typeparamref name="T" />.
     ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Suspended or faulted operations use a pooled source. Copies share that source and its version,
-    ///                 so consuming one copy invalidates every copy; await each source-backed operation exactly once.
+    ///                 Suspended or faulted operations use a pooled source.
+    ///                 Copies share that source and its version, so consuming one copy
+    ///                 invalidates every copy; await each source-backed operation exactly once.
     ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Completion may race with continuation registration, and the continuation is invoked once.
-    ///                 Concurrent attempts to consume the same operation or register multiple continuations are not
-    ///                 supported.
+    ///                 Completion may race with continuation registration, and the continuation
+    ///                 is invoked once. Concurrent attempts to consume the same
+    ///                 operation or register multiple continuations are not supported.
     ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 Continuations run inline on the thread that completes the operation, or registers after it is
-    ///                 complete; execution and synchronization contexts are not captured.
+    ///                 Continuations run inline on the thread that completes the operation, or registers
+    ///                 after it is complete; execution and synchronization contexts are not captured.
     ///             </description>
     ///         </item>
     ///         <item>
-    ///             <description>Pool growth, Debug state machines, and exception paths can allocate.</description>
+    ///             <description>
+    ///                 Pool growth, Debug state machines, and exception paths can allocate.
+    ///             </description>
     ///         </item>
     ///     </list>
     /// </remarks>
@@ -85,7 +89,8 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Gets the awaiter for this operation. This method is intended for compiler-generated <c>await</c>
+        ///     Gets the awaiter for this operation. This method is intended for
+        ///     compiler-generated <c>await</c>
         ///     expressions; manually consuming a source-backed operation still follows its single-await rule.
         /// </summary>
         /// <returns>The awaiter for this operation.</returns>
@@ -109,10 +114,13 @@ namespace Erinn
             internal Awaiter(ErinnTask<T> task) => _task = task;
 
             /// <summary>
-            ///     Gets whether the operation is complete. Inline results are always complete; source-backed operations
-            ///     query the captured source version. Pending operations return <see langword="false" />.
+            ///     Gets whether the operation is complete. Inline results are always complete;
+            ///     source-backed operations query the captured source version.
+            ///     Pending operations return <see langword="false" />.
             /// </summary>
-            /// <exception cref="InvalidOperationException">Thrown if the source version is stale or the operation was consumed.</exception>
+            /// <exception cref="InvalidOperationException">
+            ///     Thrown if the source version is stale or the operation was consumed.
+            /// </exception>
             public bool IsCompleted => _task._source == null || _task._source.IsCompleted(_task._version);
 
             /// <summary>
@@ -120,42 +128,54 @@ namespace Erinn
             /// </summary>
             /// <returns>The result of the operation.</returns>
             /// <exception cref="InvalidOperationException">
-            ///     Thrown if the operation is pending, its source version is stale, or it has
-            ///     already been consumed.
+            ///     Thrown if the operation is pending, its source
+            ///     version is stale, or it has already been consumed.
             /// </exception>
-            /// <exception cref="Exception">Rethrows the stored exception if the operation completed with a failure.</exception>
+            /// <exception cref="Exception">
+            ///     Rethrows the stored exception if the operation completed
+            ///     with a failure.
+            /// </exception>
             public T GetResult() => _task._source == null ? _task._result : _task._source.GetResult(_task._version);
 
             /// <summary>
-            ///     Registers the continuation to run inline when the operation completes. An inline result or an
-            ///     already completed source-backed operation invokes it on this thread; otherwise, the completing
-            ///     thread invokes it inline. This method does not capture the execution context, and a source-backed
-            ///     operation accepts only one continuation.
+            ///     Registers the continuation to run inline when the operation completes. An inline
+            ///     result or an already completed source-backed operation invokes it on this thread;
+            ///     otherwise, the completing thread invokes it inline. This method does not capture
+            ///     the execution context, and a source-backed operation accepts only one continuation.
             /// </summary>
             /// <param name="continuation">The continuation to invoke.</param>
-            /// <exception cref="ArgumentNullException">Thrown if <paramref name="continuation" /> is null.</exception>
+            /// <exception cref="ArgumentNullException">
+            ///     Thrown if
+            ///     <paramref name="continuation" /> is null.
+            /// </exception>
             /// <exception cref="InvalidOperationException">
-            ///     Thrown if the source version is stale or consumed, or a continuation is
-            ///     already registered.
+            ///     Thrown if the source version is stale or consumed,
+            ///     or a continuation is already registered.
             /// </exception>
             /// <exception cref="Exception">
-            ///     Propagates an exception thrown by <paramref name="continuation" /> if this call invokes it inline.
+            ///     Propagates an exception thrown by
+            ///     <paramref name="continuation" /> if this call invokes it inline.
             /// </exception>
             public void OnCompleted(Action continuation) => UnsafeOnCompleted(continuation);
 
             /// <summary>
-            ///     Registers the continuation without capturing the execution context. An inline result or an already
-            ///     completed source invokes it on this thread; a pending source-backed operation stores it until the
-            ///     completing thread invokes it inline. A source-backed operation accepts only one continuation.
+            ///     Registers the continuation without capturing the execution context.
+            ///     An inline result or an already completed source invokes it on this thread;
+            ///     a pending source-backed operation stores it until the completing thread
+            ///     invokes it inline. A source-backed operation accepts only one continuation.
             /// </summary>
             /// <param name="continuation">The continuation to invoke.</param>
-            /// <exception cref="ArgumentNullException">Thrown if <paramref name="continuation" /> is null.</exception>
+            /// <exception cref="ArgumentNullException">
+            ///     Thrown if
+            ///     <paramref name="continuation" /> is null.
+            /// </exception>
             /// <exception cref="InvalidOperationException">
-            ///     Thrown if the source version is stale or consumed, or a continuation is
-            ///     already registered.
+            ///     Thrown if the source version is stale or consumed,
+            ///     or a continuation is already registered.
             /// </exception>
             /// <exception cref="Exception">
-            ///     Propagates an exception thrown by <paramref name="continuation" /> if this call invokes it inline.
+            ///     Propagates an exception thrown by
+            ///     <paramref name="continuation" /> if this call invokes it inline.
             /// </exception>
             public void UnsafeOnCompleted(Action continuation)
             {

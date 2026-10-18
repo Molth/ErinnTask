@@ -16,7 +16,8 @@ namespace Erinn
         None = 0,
 
         /// <summary>
-        ///     A completion caller has reserved the source and is preparing its result or exception for publication.
+        ///     A completion caller has reserved the source and is
+        ///     preparing its result or exception for publication.
         /// </summary>
         Completing = 1,
 
@@ -41,7 +42,8 @@ namespace Erinn
         Consumed = 16,
 
         /// <summary>
-        ///     Release has been claimed; the owner is clearing operation data before returning the source to a pool.
+        ///     Release has been claimed; the owner is clearing
+        ///     operation data before returning the source to a pool.
         /// </summary>
         Released = 32
     }

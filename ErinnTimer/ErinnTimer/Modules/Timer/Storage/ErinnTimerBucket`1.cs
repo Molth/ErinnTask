@@ -6,21 +6,25 @@ using System.Runtime.CompilerServices;
 namespace Erinn
 {
     /// <summary>
-    ///     Stores typed callback entries, reusable slot indices, and timer-queue positions for one routed payload slot type.
+    ///     Stores typed callback entries, reusable slot indices,
+    ///     and timer-queue positions for one routed payload slot type.
     /// </summary>
     /// <typeparam name="TSlot">The type of the storage slot the payload is routed through.</typeparam>
     /// <remarks>
     ///     <list type="bullet">
     ///         <item>
-    ///             <description>The bucket is owned by one scheduler and must only be accessed on that scheduler's thread.</description>
+    ///             <description>
+    ///                 The bucket is owned by one scheduler and must only be accessed on that
+    ///                 scheduler's thread.
+    ///             </description>
     ///         </item>
     ///         <item>
     ///             <description>Concurrent operations from multiple threads are unsupported.</description>
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 The scheduler removes heap nodes; this bucket maintains the slot-to-index mapping used for
-    ///                 cancellation.
+    ///                 The scheduler removes heap nodes; this bucket
+    ///                 maintains the slot-to-index mapping used for cancellation.
     ///             </description>
     ///         </item>
     ///     </list>
@@ -60,8 +64,8 @@ namespace Erinn
         ///     first allocation; a negative value fails during array allocation.
         /// </param>
         /// <exception cref="OverflowException">
-        ///     Thrown if <paramref name="capacity" /> is negative and the runtime rejects the
-        ///     array length.
+        ///     Thrown if <paramref name="capacity" /> is
+        ///     negative and the runtime rejects the array length.
         /// </exception>
         public ErinnTimerBucket(int capacity)
         {
@@ -73,8 +77,8 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Drops callback and slot metadata so retained cancellation handles do not keep the backing arrays alive after
-        ///     disposal. The bucket cannot be used again after this call.
+        ///     Drops callback and slot metadata so retained cancellation handles do not keep the
+        ///     backing arrays alive after disposal. The bucket cannot be used again after this call.
         /// </summary>
         [ThreadAffine]
         public void Dispose()
@@ -85,20 +89,21 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Gets the queue position for a live entry whose slot and timer uid match. Returns false for a zero uid, an
-        ///     out-of-range slot, or a slot containing another timer uid.
+        ///     Gets the queue position for a live entry whose slot and timer uid match. Returns
+        ///     false for a zero uid, an out-of-range slot, or a slot containing another timer uid.
         /// </summary>
         /// <param name="uid">The non-zero timer uid expected for the entry.</param>
         /// <param name="slotIndex">
-        ///     The slot index to validate against <paramref name="uid" />; it must identify an allocated slot to
-        ///     match.
+        ///     The slot index to validate against <paramref name="uid" />;
+        ///     it must identify an allocated slot to match.
         /// </param>
         /// <param name="queueIndex">
-        ///     When this method returns <see langword="true" />, contains the entry's current heap index;
-        ///     otherwise, contains zero.
+        ///     When this method returns <see langword="true" />,
+        ///     contains the entry's current heap index; otherwise, contains zero.
         /// </param>
         /// <returns>
-        ///     <see langword="true" /> if the entry is live and its uid matches <paramref name="uid" />; otherwise
+        ///     <see langword="true" /> if the entry is live and its uid matches
+        ///     <paramref name="uid" />; otherwise
         ///     <see langword="false" />.
         /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -120,8 +125,8 @@ namespace Erinn
         /// </summary>
         /// <param name="slotIndex">The active, allocated bucket slot index.</param>
         /// <param name="index">
-        ///     The current heap position of that slot, in the range from zero to the number of queued timers minus
-        ///     one. The index is stored without validation.
+        ///     The current heap position of that slot, in the range from zero to the
+        ///     number of queued timers minus one. The index is stored without validation.
         /// </param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [ThreadAffine]
@@ -130,15 +135,22 @@ namespace Erinn
         /// <summary>
         ///     Attempts to complete a matching live entry, releasing its slot before invoking the callback.
         /// </summary>
-        /// <param name="uid">The non-zero timer uid expected for the entry currently occupying <paramref name="slotIndex" />.</param>
+        /// <param name="uid">
+        ///     The non-zero timer uid expected for the entry currently occupying
+        ///     <paramref name="slotIndex" />.
+        /// </param>
         /// <param name="slotIndex">
-        ///     The slot index to validate against <paramref name="uid" />; it must identify an allocated slot to
-        ///     match.
+        ///     The slot index to validate against <paramref name="uid" />;
+        ///     it must identify an allocated slot to match.
         /// </param>
         /// <param name="tag">The defined completion reason to pass to the callback.</param>
-        /// <param name="exception">When the matching callback throws, contains that exception; otherwise contains null.</param>
+        /// <param name="exception">
+        ///     When the matching callback throws, contains that exception;
+        ///     otherwise contains null.
+        /// </param>
         /// <returns>
-        ///     <see langword="true" /> if the slot and uid matched and the callback was invoked, even if it threw;
+        ///     <see langword="true" /> if the slot and uid matched and the callback
+        ///     was invoked, even if it threw;
         ///     otherwise <see langword="false" />.
         /// </returns>
         [ThreadAffine]
@@ -169,17 +181,26 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Allocates or reuses a slot and stores the routed payload and its typed invoker, growing the backing arrays
-        ///     when no reusable slot is available and the allocated range is full.
+        ///     Allocates or reuses a slot and stores the routed payload and its typed invoker, growing
+        ///     the backing arrays when no reusable slot is available and the allocated range is full.
         /// </summary>
-        /// <param name="uid">The non-zero timer uid assigned by the owning scheduler. It must not be in use by another live entry.</param>
-        /// <param name="callback">The non-null user callback to retain until the timer completes; null is not checked here.</param>
+        /// <param name="uid">
+        ///     The non-zero timer uid assigned by the owning scheduler. It must not be in use by
+        ///     another live entry.
+        /// </param>
+        /// <param name="callback">
+        ///     The non-null user callback to retain until the timer completes; null is
+        ///     not checked here.
+        /// </param>
         /// <param name="data">
-        ///     The payload whose representation is compatible with <typeparamref name="TSlot" />; compatibility is
-        ///     a caller precondition and is not checked here.
+        ///     The payload whose representation is compatible with <typeparamref name="TSlot" />;
+        ///     compatibility is a caller precondition and is not checked here.
         /// </param>
         /// <typeparam name="T">The callback parameter type.</typeparam>
-        /// <returns>The allocated slot index, which is non-negative and remains associated with this entry until it is completed.</returns>
+        /// <returns>
+        ///     The allocated slot index, which is non-negative and remains associated with this entry until
+        ///     it is completed.
+        /// </returns>
         [ThreadAffine]
         public int Allocate<T>(ulong uid, Action<ErinnTimerTag, T?> callback, T? data)
         {
@@ -205,8 +226,9 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Grows callback storage and slot metadata while preserving active entries and heap positions. This is called
-        ///     only when no free slot is available, so the new free-slot-index array starts empty.
+        ///     Grows callback storage and slot metadata while preserving active
+        ///     entries and heap positions. This is called only when no free
+        ///     slot is available, so the new free-slot-index array starts empty.
         /// </summary>
         /// <param name="minimumCapacity">The capacity required to allocate the next slot.</param>
         [ThreadAffine]

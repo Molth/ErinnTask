@@ -3,20 +3,10 @@
 namespace Erinn
 {
     /// <summary>
-    ///     Represents parameter names used in exception messages for argument validation failures.
+    ///     Identifies supported parameter names for argument exceptions raised by task helpers.
     /// </summary>
     internal enum ExceptionArgument
     {
-        /// <summary>
-        ///     The name of the callback parameter.
-        /// </summary>
-        callback,
-
-        /// <summary>
-        ///     The name of the capacity parameter.
-        /// </summary>
-        capacity,
-
         /// <summary>
         ///     The name of the continuation parameter.
         /// </summary>

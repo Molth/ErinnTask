@@ -13,9 +13,9 @@ namespace Erinn
     internal sealed class ErinnTaskRunner<TStateMachine, T> : IErinnTaskSource<T> where TStateMachine : IAsyncStateMachine
     {
         /// <summary>
-        ///     The array-backed stack of available runners on the current thread.
+        ///     The bounded queue of available runners shared by this closed runner type.
         /// </summary>
-        [ThreadStatic] private static ErinnTaskPool<ErinnTaskRunner<TStateMachine, T>>? _pool;
+        private static readonly ErinnArrayQueue<ErinnTaskRunner<TStateMachine, T>> Pool = new(ErinnTaskPool.MAX_POOLED_INSTANCES);
 
         /// <summary>
         ///     The lifecycle state and continuation shared by each use of this runner.
@@ -62,7 +62,10 @@ namespace Erinn
         ///     Gets whether the identified operation has completed.
         /// </summary>
         /// <param name="version">The version that identifies the operation.</param>
-        /// <returns><see langword="true" /> if the operation has completed; otherwise <see langword="false" />.</returns>
+        /// <returns>
+        ///     <see langword="true" /> if the operation has completed; otherwise
+        ///     <see langword="false" />.
+        /// </returns>
         /// <exception cref="InvalidOperationException">
         ///     Thrown if <paramref name="version" /> is stale or the operation was
         ///     consumed or released.
@@ -70,16 +73,20 @@ namespace Erinn
         public bool IsCompleted(ulong version) => _lifecycle.IsCompleted(version);
 
         /// <summary>
-        ///     Registers the one continuation. If completion has already been published, invokes it inline on this
+        ///     Registers the one continuation. If completion has already been
+        ///     published, invokes it inline on this
         ///     thread; otherwise, the completing thread invokes it inline when it publishes completion.
         /// </summary>
         /// <param name="version">The version that identifies the operation.</param>
         /// <param name="continuation">The non-null continuation to invoke.</param>
         /// <exception cref="InvalidOperationException">
-        ///     Thrown if the version is stale, the operation was consumed or released, or
-        ///     a continuation is already registered.
+        ///     Thrown if the version is stale, the operation was
+        ///     consumed or released, or a continuation is already registered.
         /// </exception>
-        /// <exception cref="Exception">Propagates an exception thrown by the continuation when completion was already published.</exception>
+        /// <exception cref="Exception">
+        ///     Propagates an exception thrown by the continuation when completion was
+        ///     already published.
+        /// </exception>
         public void OnCompleted(ulong version, Action continuation)
         {
             try
@@ -93,36 +100,43 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Gets the completed result, consumes the operation, and returns the runner when no call is active.
+        ///     Gets the completed result, consumes the operation, and returns the
+        ///     runner when no call is active.
         /// </summary>
         /// <param name="version">The version that identifies the operation.</param>
         /// <returns>The result of the operation.</returns>
         /// <exception cref="InvalidOperationException">
-        ///     Thrown if the operation is pending, its version is stale, or it has already
-        ///     been consumed or released.
+        ///     Thrown if the operation is pending, its version is
+        ///     stale, or it has already been consumed or released.
         /// </exception>
-        /// <exception cref="Exception">Rethrows the captured exception if the operation completed with a failure.</exception>
+        /// <exception cref="Exception">
+        ///     Rethrows the captured exception if the operation completed
+        ///     with a failure.
+        /// </exception>
         public T GetResult(ulong version)
         {
             var exception = _lifecycle.Consume(version, ref _result, out var result);
             TryRelease();
 
             if (exception != null)
-                ThrowHelpers.Throw(exception);
+                ThrowHelpers.RethrowDispatchInfo(exception);
             return result;
         }
 
         /// <summary>
-        ///     Completes the pending operation with the specified result, publishes completion, and invokes a registered
-        ///     continuation inline. After consumption and after active state-machine or callback calls have returned,
-        ///     the runner is returned to the thread-local pool of the thread that performs the final release.
+        ///     Completes the pending operation with the specified result, publishes completion,
+        ///     and invokes a registered continuation inline. After consumption and after
+        ///     active state-machine or callback calls have returned, the runner is
+        ///     offered to its shared bounded queue if the queue has capacity.
         /// </summary>
         /// <param name="result">The result of the operation.</param>
         /// <exception cref="InvalidOperationException">
-        ///     Thrown if completion has already started or the operation is no longer
-        ///     pending.
+        ///     Thrown if completion has already
+        ///     started or the operation is no longer pending.
         /// </exception>
-        /// <exception cref="Exception">Propagates an exception thrown by a registered continuation.</exception>
+        /// <exception cref="Exception">
+        ///     Propagates an exception thrown by a registered continuation.
+        /// </exception>
         public void SetResult(T result)
         {
             _lifecycle.BeginCompletion();
@@ -131,17 +145,22 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Completes the pending operation with the specified exception, publishes completion, and invokes a
-        ///     registered continuation inline. After consumption and after active state-machine or callback calls have
-        ///     returned, the runner is returned to the thread-local pool of the thread that performs the final release.
+        ///     Completes the pending operation with the specified exception,
+        ///     publishes completion, and invokes a registered continuation inline. After
+        ///     consumption and after active state-machine or callback calls have returned, the runner
+        ///     is offered to its shared bounded queue if the queue has capacity.
         /// </summary>
         /// <param name="exception">The non-null exception thrown by the async method.</param>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="exception" /> is null.</exception>
-        /// <exception cref="InvalidOperationException">
-        ///     Thrown if completion has already started or the operation is no longer
-        ///     pending.
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown if <paramref name="exception" /> is null.
         /// </exception>
-        /// <exception cref="Exception">Propagates an exception thrown by a registered continuation.</exception>
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown if completion has already
+        ///     started or the operation is no longer pending.
+        /// </exception>
+        /// <exception cref="Exception">
+        ///     Propagates an exception thrown by a registered continuation.
+        /// </exception>
         public void SetException(Exception exception)
         {
             _lifecycle.BeginExceptionCompletion(exception);
@@ -154,11 +173,10 @@ namespace Erinn
         /// <returns>A runner prepared for one async operation.</returns>
         public static ErinnTaskRunner<TStateMachine, T> Rent()
         {
-            var pool = GetPool();
-            if (!pool.TryPop(out var runner))
+            if (!Pool.TryDequeue(out var runner))
                 runner = new ErinnTaskRunner<TStateMachine, T>();
 
-            runner._lifecycle.Prepare();
+            runner!._lifecycle.Prepare();
             return runner;
         }
 
@@ -169,8 +187,8 @@ namespace Erinn
         public void SetStateMachine(ref TStateMachine stateMachine) => _stateMachine = stateMachine;
 
         /// <summary>
-        ///     Resumes the stored state machine and postpones pooling until its call has returned. The continuation runs
-        ///     on whichever thread invoked it.
+        ///     Resumes the stored state machine and postpones pooling until its call
+        ///     has returned. The continuation runs on whichever thread invoked it.
         /// </summary>
         private void Run()
         {
@@ -187,7 +205,8 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Claims release, clears typed operation data, and returns this runner to the consuming thread's pool.
+        ///     Claims release, clears typed operation data, and returns
+        ///     this runner to the shared bounded queue when it has capacity.
         /// </summary>
         private void TryRelease()
         {
@@ -196,11 +215,12 @@ namespace Erinn
 
             _result = default!;
             _stateMachine = default!;
-            GetPool().Push(this);
+            Pool.TryEnqueue(this);
         }
 
         /// <summary>
-        ///     Publishes completion and returns the runner to its pool if an inline continuation consumed the operation.
+        ///     Publishes completion and returns the runner to its
+        ///     pool if an inline continuation consumed the operation.
         /// </summary>
         private void CompleteAndRelease()
         {
@@ -213,11 +233,5 @@ namespace Erinn
                 TryRelease();
             }
         }
-
-        /// <summary>
-        ///     Gets the runner pool for the calling thread, creating its initial storage on first use.
-        /// </summary>
-        /// <returns>The pool local to the current thread.</returns>
-        private static ErinnTaskPool<ErinnTaskRunner<TStateMachine, T>> GetPool() => _pool ??= new ErinnTaskPool<ErinnTaskRunner<TStateMachine, T>>();
     }
 }
