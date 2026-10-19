@@ -1,18 +1,17 @@
-# ErinnTask, ErinnTimer, ErinnArrayQueue
+# ErinnTask and ErinnTimer
 
 [![NuGet](https://img.shields.io/nuget/v/ErinnTask.svg?style=flat-square)](https://www.nuget.org/packages/ErinnTask/)
 [![NuGet](https://img.shields.io/nuget/v/ErinnTimer.svg?style=flat-square)](https://www.nuget.org/packages/ErinnTimer/)
-[![NuGet](https://img.shields.io/nuget/v/ErinnArrayQueue.svg?style=flat-square)](https://www.nuget.org/packages/ErinnArrayQueue/)
+[![NuGet](https://img.shields.io/nuget/v/crossbeam-queue.svg?style=flat-square)](https://www.nuget.org/packages/crossbeam-queue/)
 
-This solution contains three .NET libraries in the `Erinn` namespace. ErinnTimer provides a
-caller-driven timer scheduler. ErinnTask provides custom awaitable types and awaitable timer
-integration for that scheduler. ErinnArrayQueue provides a bounded, fixed-capacity concurrent queue.
+This solution contains two .NET libraries. ErinnTimer provides a caller-driven timer scheduler.
+ErinnTask provides custom awaitable types and timer integration for that scheduler. It uses the
+`crossbeam-queue` NuGet package for the bounded concurrent queues used by its object pools.
 
-| Project         | Main API                                                           | Project documentation                    |
-|-----------------|--------------------------------------------------------------------|------------------------------------------|
-| ErinnTimer      | `ErinnTimerScheduler`, `ErinnTimerHandle`, `ErinnTimerTag`         | [README](ErinnTimer/README.md)           |
-| ErinnTask       | `ErinnTask`, `ErinnTask<T>`, timer extensions and microsecond view | [README](ErinnTask/README.md)            |
-| ErinnArrayQueue | `ErinnArrayQueue<T>`, `InsertResult`                               | [README](ErinnArrayQueue/README.md)      |
+| Project    | Main API                                                           | Project documentation          |
+|------------|--------------------------------------------------------------------|--------------------------------|
+| ErinnTimer | `ErinnTimerScheduler`, `ErinnTimerHandle`, `ErinnTimerTag`         | [README](ErinnTimer/README.md) |
+| ErinnTask  | `ErinnTask`, `ErinnTask<T>`, timer extensions and microsecond view | [README](ErinnTask/README.md)  |
 
 ## ErinnTask
 
@@ -116,25 +115,12 @@ queue causes a new instance to be allocated, and a return made while the queue i
 Queue initialization, timer storage growth, capturing delegates, Debug state machines, and exception
 paths may allocate. Timer payloads are stored without boxing.
 
-## ErinnArrayQueue
+## Queue dependency
 
-`ErinnArrayQueue<T>` is a bounded multi-producer, multi-consumer queue with a fixed capacity.
-`TryEnqueue` returns `false` when full. `Enqueue` replaces the oldest element when full, which makes
-it useful as a ring buffer; the method reports the replacement through `InsertResult` and its
-`overwritten` output parameter.
-
-```csharp
-using System;
-using Erinn;
-
-var queue = new ErinnArrayQueue<int>(capacity: 2);
-queue.Enqueue(10, out _);
-queue.Enqueue(20, out _);
-
-if (queue.Enqueue(30, out var overwritten) == InsertResult.Overwritten)
-    Console.WriteLine(overwritten); // 10
-```
+`crossbeam-queue` is an ErinnTask NuGet dependency, not a project in this solution. ErinnTask uses
+its `ArrayQueue<T>` for bounded, concurrent reuse queues. See the
+[crossbeam-queue package](https://www.nuget.org/packages/crossbeam-queue/).
 
 ## License
 
-All three projects are distributed under the [MIT License](LICENSE).
+Both solution projects are distributed under the [MIT License](LICENSE).

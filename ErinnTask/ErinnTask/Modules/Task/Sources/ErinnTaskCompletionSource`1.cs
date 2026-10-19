@@ -1,4 +1,5 @@
 using System;
+using crossbeam;
 
 // ReSharper disable ALL
 
@@ -25,8 +26,8 @@ namespace Erinn
     ///         <item>
     ///             <description>
     ///                 The queue is thread-safe and retains at most
-    ///                 <see cref="ErinnTaskPool.MAX_POOLED_INSTANCES" /> sources; a source returned while it is full is
-    ///                 discarded.
+    ///                 <see cref="ErinnTaskPool.MAX_POOLED_INSTANCES" /> sources;
+    ///                 a source returned while it is full is discarded.
     ///             </description>
     ///         </item>
     ///     </list>
@@ -36,7 +37,7 @@ namespace Erinn
         /// <summary>
         ///     The bounded queue of available sources shared by this closed result type.
         /// </summary>
-        private static readonly ErinnArrayQueue<ErinnTaskCompletionSource<T>> Pool = new(ErinnTaskPool.MAX_POOLED_INSTANCES);
+        private static readonly ArrayQueue<ErinnTaskCompletionSource<T>> Pool = new(ErinnTaskPool.MAX_POOLED_INSTANCES);
 
         /// <summary>
         ///     The lifecycle state and continuation shared by each use of this source.

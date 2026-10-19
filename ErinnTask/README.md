@@ -1,6 +1,7 @@
 # ErinnTask
 
 [![NuGet](https://img.shields.io/nuget/v/ErinnTask.svg?style=flat-square)](https://www.nuget.org/packages/ErinnTask/)
+[![NuGet](https://img.shields.io/nuget/v/crossbeam-queue.svg?style=flat-square)](https://www.nuget.org/packages/crossbeam-queue/)
 
 ErinnTask provides the custom awaitable types `ErinnTask` and `ErinnTask<T>` for asynchronous
 methods. They are not wrappers around `Task` or `ValueTask`; the library does not provide their
@@ -153,8 +154,9 @@ There are no implicit conversions to or from `Task` or `ValueTask`, no `Configur
 awaited by any async method that follows the C# awaiter pattern.
 
 Synchronous success needs no pooled source. Suspended methods reuse typed runners and completion
-storage through shared bounded queues. Each closed runner or completion-source type retains returned instances
-up to its configured capacity; an empty queue causes a new instance to be allocated, and
+storage through `ArrayQueue<T>` instances from the `crossbeam-queue` package. Each closed runner or
+completion-source type has a separate queue shared across threads and retains returned instances up
+to its configured capacity; an empty queue causes a new instance to be allocated, and
 a return made while the queue is full is discarded. Queue initialization, timer storage growth, captured
 delegates, Debug state machines, and exception paths may allocate. Timer payloads are stored without
 boxing. Measure the application's actual call pattern before making allocation claims.

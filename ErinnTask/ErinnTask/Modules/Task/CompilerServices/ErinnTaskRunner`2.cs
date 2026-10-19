@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
+using crossbeam;
 
 // ReSharper disable ALL
 
@@ -15,7 +16,7 @@ namespace Erinn
         /// <summary>
         ///     The bounded queue of available runners shared by this closed runner type.
         /// </summary>
-        private static readonly ErinnArrayQueue<ErinnTaskRunner<TStateMachine, T>> Pool = new(ErinnTaskPool.MAX_POOLED_INSTANCES);
+        private static readonly ArrayQueue<ErinnTaskRunner<TStateMachine, T>> Pool = new(ErinnTaskPool.MAX_POOLED_INSTANCES);
 
         /// <summary>
         ///     The lifecycle state and continuation shared by each use of this runner.

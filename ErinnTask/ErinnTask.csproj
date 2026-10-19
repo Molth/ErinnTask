@@ -7,7 +7,7 @@
         <Nullable>enable</Nullable>
 
         <PackageId>ErinnTask</PackageId>
-        <Version>1.0.7</Version>
+        <Version>1.0.8</Version>
         <Authors>Molth Nevin</Authors>
         <Company>Hell</Company>
         <Description>Lightweight asynchronous primitives.</Description>
@@ -23,7 +23,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="ErinnArrayQueue" Version="1.0.1" />
+        <PackageReference Include="crossbeam-queue" Version="1.0.3" />
         <PackageReference Include="ErinnTimer" Version="1.0.1" />
     </ItemGroup>
 

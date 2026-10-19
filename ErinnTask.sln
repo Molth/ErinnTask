@@ -4,8 +4,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ErinnTask", "ErinnTask\Erin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ErinnTimer", "ErinnTimer\ErinnTimer.csproj", "{4ACA285E-5970-47AB-8980-D6BC94A59839}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ErinnArrayQueue", "ErinnArrayQueue\ErinnArrayQueue.csproj", "{CFE4BD58-398D-4D80-B601-A2631D0FED95}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,9 +18,5 @@ Global
 		{4ACA285E-5970-47AB-8980-D6BC94A59839}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4ACA285E-5970-47AB-8980-D6BC94A59839}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4ACA285E-5970-47AB-8980-D6BC94A59839}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CFE4BD58-398D-4D80-B601-A2631D0FED95}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CFE4BD58-398D-4D80-B601-A2631D0FED95}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CFE4BD58-398D-4D80-B601-A2631D0FED95}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CFE4BD58-398D-4D80-B601-A2631D0FED95}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
