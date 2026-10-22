@@ -10,6 +10,6 @@ namespace Erinn
         /// <summary>
         ///     The maximum number of returned instances retained by each queue.
         /// </summary>
-        public const int MAX_POOLED_INSTANCES = 16;
+        public const int MAX_POOLED_INSTANCES = 64;
     }
 }

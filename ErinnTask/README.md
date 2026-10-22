@@ -1,6 +1,7 @@
 # ErinnTask
 
 [![NuGet](https://img.shields.io/nuget/v/ErinnTask.svg?style=flat-square)](https://www.nuget.org/packages/ErinnTask/)
+[![NuGet](https://img.shields.io/nuget/v/ErinnTimer.svg?style=flat-square)](https://www.nuget.org/packages/ErinnTimer/)
 [![NuGet](https://img.shields.io/nuget/v/crossbeam-queue.svg?style=flat-square)](https://www.nuget.org/packages/crossbeam-queue/)
 
 ErinnTask provides the custom awaitable types `ErinnTask` and `ErinnTask<T>` for asynchronous
